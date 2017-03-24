@@ -12,7 +12,7 @@ resource "instaclustr_firewallrule" "foo" {
 To build this plugin run:  
 go build -o terraform-provider-instaclustr
 
-INSTACLUSTR_ACCESS_KEY and INSTACLUSTR_SECRET_KEY must be set for instaclustr to have access to your target firewall_rules_url.
+INSTACLUSTR_ACCESS_KEY and INSTACLUSTR_SECRET_KEY must be set as environment variables for instaclustr to have access to your target firewall_rules_url.
 
 An example terraform command:  
 INSTACLUSTR_ACCESS_KEY=[ACCESS_KEY] INSTACLUSTR_SECRET_KEY=[SECRET_KEY] terraform [COMMAND]
