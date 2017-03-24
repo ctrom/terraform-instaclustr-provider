@@ -4,7 +4,7 @@ An example .tf setup
 provider "instaclustr" "test"{}
 
 resource "instaclustr_firewallrule" "foo" {
-  address = "<IP_ADDRESS_TO_ADD>"
+  rule = "<IP_ADDRESS_TO_ADD>"
   firewall_rules_url = "https://api.instaclustr.com/provisioning/v1/<YOUR_CLUSTER>/firewallRules"
 }
 

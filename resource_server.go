@@ -18,7 +18,7 @@ func firewallRule() *schema.Resource {
 		Delete: resourceServerDelete,
 
 		Schema: map[string]*schema.Schema{
-			"address": &schema.Schema{
+			"rule": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 			},
@@ -31,16 +31,16 @@ func firewallRule() *schema.Resource {
 }
 
 func resourceServerCreate(d *schema.ResourceData, m interface{}) error {
-	address := d.Get("address").(string)
+	rule := d.Get("rule").(string)
 	p := getJsonObject(d, m)
 
-	if !isExistingFirewallRule(p, address) {
+	if !isExistingFirewallRule(p, rule) {
 		log.Println("[DEBUG] Creating firewall rule in instaclustr")
-		addFireWallRule(address, d, m)
-		d.SetId("Instaclustr_" + address)
+		addFireWallRule(rule, d, m)
+		d.SetId("Instaclustr_" + rule)
 	} else {
 		log.Println("[DEBUG] Firewall rule was already set in instaclustr")
-		d.SetId("Instaclustr_" + address)
+		d.SetId("Instaclustr_" + rule)
 	}
 	return nil
 }
@@ -50,22 +50,22 @@ func resourceServerRead(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceServerUpdate(d *schema.ResourceData, m interface{}) error {
-	oA, nA := d.GetChange("address")
-	oldAddress := oA.(string)
-	newAddress := nA.(string)
+	oA, nA := d.GetChange("rule")
+	oldrule := oA.(string)
+	newrule := nA.(string)
 	p := getJsonObject(d, m)
 
-	if isExistingFirewallRule(p, oldAddress) {
+	if isExistingFirewallRule(p, oldrule) {
 		log.Println("[DEBUG] Deleting firewall rule in instaclustr")
-		deleteFireWallRule(oldAddress, d, m)
+		deleteFireWallRule(oldrule, d, m)
 	} else {
 		log.Println("[DEBUG] Firewall rule was already deleted in instaclustr")
 	}
 
-	if !isExistingFirewallRule(p, newAddress) {
+	if !isExistingFirewallRule(p, newrule) {
 		log.Println("[DEBUG] Creating firewall rule in instaclustr")
-		addFireWallRule(newAddress, d, m)
-		d.SetId("Instaclustr_" + newAddress)
+		addFireWallRule(newrule, d, m)
+		d.SetId("Instaclustr_" + newrule)
 	} else {
 		log.Println("[DEBUG] Firewall rule was already set in instaclustr")
 	}
@@ -73,12 +73,12 @@ func resourceServerUpdate(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceServerDelete(d *schema.ResourceData, m interface{}) error {
-	address := d.Get("address").(string)
+	rule := d.Get("rule").(string)
 	p := getJsonObject(d, m)
 
-	if isExistingFirewallRule(p, address) {
+	if isExistingFirewallRule(p, rule) {
 		log.Println("[DEBUG] Deleting firewall rule in instaclustr")
-		deleteFireWallRule(address, d, m)
+		deleteFireWallRule(rule, d, m)
 		d.SetId("")
 	} else {
 		log.Println("[DEBUG] Firewall rule was already deleted in instaclustr")
@@ -96,15 +96,15 @@ type InstaclustrJSONData struct {
 
 type InstaclustrJSON []InstaclustrJSONData
 
-func addFireWallRule(address string, d *schema.ResourceData, m interface{}) {
-	evaluateFireWallRule("POST", address, d, m)
+func addFireWallRule(rule string, d *schema.ResourceData, m interface{}) {
+	evaluateFireWallRule("POST", rule, d, m)
 }
 
-func deleteFireWallRule(address string, d *schema.ResourceData, m interface{}) {
-	evaluateFireWallRule("DELETE", address, d, m)
+func deleteFireWallRule(rule string, d *schema.ResourceData, m interface{}) {
+	evaluateFireWallRule("DELETE", rule, d, m)
 }
 
-func evaluateFireWallRule(requestType string, address string, d *schema.ResourceData, m interface{}) {
+func evaluateFireWallRule(requestType string, rule string, d *schema.ResourceData, m interface{}) {
 	firewall_rules_url := d.Get("firewall_rules_url").(string)
 	config := m.(*Config)
 	username := config.AccessKey
@@ -125,7 +125,7 @@ func evaluateFireWallRule(requestType string, address string, d *schema.Resource
 						"type":"CASSANDRA"
 					}
 				]
-			}`, address))
+			}`, rule))
 
 	req, err := http.NewRequest(requestType, firewall_rules_url, bytes.NewBuffer(jsonStr))
 	req.Header.Set("X-Custom-Header", "testing")
