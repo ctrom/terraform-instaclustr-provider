@@ -2,6 +2,7 @@ pipeline:
   build:
     main:
       image: golang
+      pull: true
       commands:
         - go build -o terraform-provider-instaclustr
         - tar -zcvf terraform-provider-instaclustr-linux-amd64.tar.gz terraform-provider-instaclustr
