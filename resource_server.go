@@ -119,7 +119,7 @@ func evaluateFireWallRule(requestType string, rule string, d *schema.ResourceDat
 
 	var jsonStr = []byte(fmt.Sprintf(`
 			{
-				"network":"%s",
+				"network":https://api.instaclustr.com/provisioning/v1/"%s/firewallRules",
 				"rules":[
 					{
 						"type":"CASSANDRA"

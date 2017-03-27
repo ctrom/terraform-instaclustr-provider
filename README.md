@@ -6,7 +6,7 @@ provider "instaclustr" "test"{}
 
 resource "instaclustr_firewallrule" "foo" {  
   rule = "[IP_ADDRESS_TO_ADD]>"  
-  firewall_rules_url = "https://api.instaclustr.com/provisioning/v1/[YOUR_CLUSTER]/firewallRules"  
+  firewall_rules_url = "[YOUR_CLUSTER_ID]"  
 }
 ```
 To build this plugin run:  
