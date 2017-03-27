@@ -21,9 +21,14 @@ func Provider() *schema.Provider {
 				Description: "Instaclustr key used for api access",
 				Sensitive:   true,
 			},
+			"url": &schema.Schema{
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("INSTACLUSTR_URL", "https://api.instaclustr.com/provisioning/v1"),
+			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"instaclustr_firewallrule": firewallRule(),
+			"instaclustr_firewall_rule": resourceFirewallRule(),
 		},
 		ConfigureFunc: configureProvider,
 	}
@@ -32,8 +37,9 @@ func Provider() *schema.Provider {
 func configureProvider(d *schema.ResourceData) (interface{}, error) {
 
 	config := Config{
-		AccessKey:    d.Get("access_key").(string),
-		SecretKey:    d.Get("secret_key").(string),
+		AccessKey: d.Get("access_key").(string),
+		SecretKey: d.Get("secret_key").(string),
+		Url:       d.Get("url").(string),
 	}
 
 	return &config, nil
