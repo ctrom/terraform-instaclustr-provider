@@ -2,7 +2,7 @@ build:
   main:
     image: golang
     commands:
-      - GO15VENDOREXPERIMENT=1 go build -o terraform-provider-instaclustr
+      - go build -o terraform-provider-instaclustr
       - tar -zcvf terraform-provider-instaclustr-linux-amd64.tar.gz terraform-provider-instaclustr
 
 

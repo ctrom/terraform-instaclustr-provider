@@ -1,28 +1,30 @@
 package main
 
 import (
-	"github.com/hashicorp/terraform/helper/schema"
-	"net/http"
-	"log"
-	"io/ioutil"
-	"fmt"
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"strings"
+
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
-func firewallRule() *schema.Resource {
+func resourceFirewallRule() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceServerCreate,
-		Read:   resourceServerRead,
-		Update: resourceServerUpdate,
-		Delete: resourceServerDelete,
+		Create: resourceInstaclustrFirewallRuleCreate,
+		Read:   resourceInstaclustrFirewallRuleRead,
+		Update: resourceInstaclustrFirewallRuleUpdate,
+		Delete: resourceInstaclustrFirewallRuleDelete,
 
 		Schema: map[string]*schema.Schema{
 			"rule": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"firewall_rules_url": &schema.Schema{
+			"cluster_id": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 			},
@@ -30,7 +32,7 @@ func firewallRule() *schema.Resource {
 	}
 }
 
-func resourceServerCreate(d *schema.ResourceData, m interface{}) error {
+func resourceInstaclustrFirewallRuleCreate(d *schema.ResourceData, m interface{}) error {
 	rule := d.Get("rule").(string)
 	p := getJsonObject(d, m)
 
@@ -45,11 +47,11 @@ func resourceServerCreate(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceServerRead(d *schema.ResourceData, m interface{}) error {
+func resourceInstaclustrFirewallRuleRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceServerUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceInstaclustrFirewallRuleUpdate(d *schema.ResourceData, m interface{}) error {
 	oA, nA := d.GetChange("rule")
 	oldrule := oA.(string)
 	newrule := nA.(string)
@@ -72,7 +74,7 @@ func resourceServerUpdate(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceServerDelete(d *schema.ResourceData, m interface{}) error {
+func resourceInstaclustrFirewallRuleDelete(d *schema.ResourceData, m interface{}) error {
 	rule := d.Get("rule").(string)
 	p := getJsonObject(d, m)
 
@@ -88,8 +90,8 @@ func resourceServerDelete(d *schema.ResourceData, m interface{}) error {
 
 type InstaclustrJSONData struct {
 	Network string `json:"network"`
-	Rules []struct {
-		Type string `json:"type"`
+	Rules   []struct {
+		Type   string `json:"type"`
 		Status string `json:"status"`
 	} `json:"rules"`
 }
@@ -105,10 +107,11 @@ func deleteFireWallRule(rule string, d *schema.ResourceData, m interface{}) {
 }
 
 func evaluateFireWallRule(requestType string, rule string, d *schema.ResourceData, m interface{}) {
-	firewall_rules_url := d.Get("firewall_rules_url").(string)
+	cluster_id := d.Get("cluster_id").(string)
 	config := m.(*Config)
 	username := config.AccessKey
 	passwd := config.SecretKey
+	apiUrl := config.Url
 
 	if username == "" {
 		panic("Must set environment variable for instaclustr <INSTACLUSTR_ACCESS_KEY>")
@@ -119,7 +122,7 @@ func evaluateFireWallRule(requestType string, rule string, d *schema.ResourceDat
 
 	var jsonStr = []byte(fmt.Sprintf(`
 			{
-				"network":https://api.instaclustr.com/provisioning/v1/"%s/firewallRules",
+				"network": "%s",
 				"rules":[
 					{
 						"type":"CASSANDRA"
@@ -127,7 +130,7 @@ func evaluateFireWallRule(requestType string, rule string, d *schema.ResourceDat
 				]
 			}`, rule))
 
-	req, err := http.NewRequest(requestType, firewall_rules_url, bytes.NewBuffer(jsonStr))
+	req, err := http.NewRequest(requestType, strings.Join([]string{apiUrl, cluster_id, "firewallRules"}, "/"), bytes.NewBuffer(jsonStr))
 	req.Header.Set("X-Custom-Header", "testing")
 	req.Header.Set("Content-Type", "application/json")
 	req.SetBasicAuth(username, passwd)
@@ -183,7 +186,7 @@ func getRequest(d *schema.ResourceData, m interface{}) *http.Response {
 
 	request.SetBasicAuth(username, passwd)
 	response, err := client.Do(request)
-	if err != nil{
+	if err != nil {
 		log.Fatal(err)
 	}
 	return response
@@ -191,7 +194,7 @@ func getRequest(d *schema.ResourceData, m interface{}) *http.Response {
 
 func getRequestToString(resp *http.Response) string {
 	bodyText, err := ioutil.ReadAll(resp.Body)
-	if err != nil{
+	if err != nil {
 		log.Fatal(err)
 	}
 	return string(bodyText)
