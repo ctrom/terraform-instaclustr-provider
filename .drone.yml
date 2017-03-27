@@ -5,8 +5,9 @@ pipeline:
       - cp -R vendor/github.com/ /usr/local/go/src/
       - go build -o terraform-provider-instaclustr
       - tar -zcvf terraform-provider-instaclustr-linux-amd64.tar.gz terraform-provider-instaclustr
+
   s3:
-    image: golang
+    image: plugins/s3
     acl: authenticated-read
     region: "us-east-1"
     bucket: "peoplenet-custom-tools"
