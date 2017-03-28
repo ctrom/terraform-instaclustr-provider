@@ -19,6 +19,13 @@ func (c *InstaclustrClient) FirewallClient() *FirewallClient {
 	}
 }
 
+// VpcPeeringClient creates a client fo rinterfacing with the Instaclustr Vpc Peering API
+func (c *InstaclustrClient) VpcPeeringClient() *VpcPeeringClient {
+	return &VpcPeeringClient{
+		client: c,
+	}
+}
+
 func (c *InstaclustrClient) doGet(path string) (*http.Response, error) {
 	url := strings.Join([]string{c.config.URL, path}, "/")
 	request, err := http.NewRequest(http.MethodGet, url, nil)
