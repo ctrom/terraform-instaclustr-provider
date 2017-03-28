@@ -1,3 +1,5 @@
 *.tfstate
 *.tfstate.backup
 *.idea
+terraform-provider-instaclustr
+terraform-provider-instaclustr*.gz
