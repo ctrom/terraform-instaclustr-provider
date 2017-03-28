@@ -13,7 +13,7 @@ pipeline:
 
   s3:
     image: plugins/s3
-    acl: authenticated-read
+    acl: public-read
     region: "us-east-1"
     bucket: "peoplenet-custom-tools"
     access_key: ${PN_AWS_ACCESS_KEY_ID}
