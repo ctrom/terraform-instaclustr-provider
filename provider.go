@@ -1,25 +1,26 @@
 package main
 
 import (
+	"net/http"
+
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
+// Provider creates the Instaclustr provider
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
 			"access_key": &schema.Schema{
 				Type:        schema.TypeString,
-				Optional:    true,
+				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("INSTACLUSTR_ACCESS_KEY", ""),
 				Description: "Instaclustr user name used for api access",
-				Sensitive:   true,
 			},
 			"secret_key": &schema.Schema{
 				Type:        schema.TypeString,
-				Optional:    true,
+				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("INSTACLUSTR_SECRET_KEY", ""),
 				Description: "Instaclustr key used for api access",
-				Sensitive:   true,
 			},
 			"url": &schema.Schema{
 				Type:        schema.TypeString,
@@ -39,8 +40,11 @@ func configureProvider(d *schema.ResourceData) (interface{}, error) {
 	config := Config{
 		AccessKey: d.Get("access_key").(string),
 		SecretKey: d.Get("secret_key").(string),
-		Url:       d.Get("url").(string),
+		URL:       d.Get("url").(string),
 	}
 
-	return &config, nil
+	return &InstaclustrClient{
+		config: config,
+		client: &http.Client{},
+	}, nil
 }
