@@ -62,11 +62,12 @@ func resourceInstaclustrVpcPeeringConnectionCreate(d *schema.ResourceData, m int
 		PeerVpcID:     d.Get("peer_vpc_id").(string),
 		PeerSubnet:    d.Get("peer_subnet").(string),
 	}
-	_, err := client.Create(clusterDatacenterID, request)
+	response, err := client.Create(clusterDatacenterID, request)
 	if err != nil {
 		d.SetId("")
 		return err
 	}
+	d.SetId(vpcPeeringConnectionID(clusterDatacenterID, response.ID))
 	return resourceInstaclustrFirewallRuleRead(d, m)
 }
 
