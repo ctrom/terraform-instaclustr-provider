@@ -1,8 +1,11 @@
+workspace:
+  base: /go
+  path: src/github.com/peoplenet/terraform-instaclustr-provider
+  
 pipeline:
   build:
-    image: golang
+    image: golang:1.8.0-alpine
     commands:
-      - cp -R vendor/github.com/ /usr/local/go/src/
       - go build -o terraform-provider-instaclustr
       - tar -zcvf terraform-provider-instaclustr-linux-amd64.tar.gz terraform-provider-instaclustr
 
@@ -16,4 +19,5 @@ pipeline:
     source: terraform-provider-instaclustr-linux-amd64.tar.gz
     target: /terraform-provider-instaclustr/terraform-provider-instaclustr-linux-amd64.tar.gz
     when:
+      local: false
       branch: master
