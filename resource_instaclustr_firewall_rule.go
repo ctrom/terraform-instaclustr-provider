@@ -52,7 +52,7 @@ func resourceInstaclustrFirewallRuleRead(d *schema.ResourceData, m interface{}) 
 	var networkRule *Firewall
 	for _, f := range firewallRules {
 		if f.Network == d.Get("network").(string) {
-			networkRule = &f
+			networkRule = f
 		}
 	}
 	if networkRule == nil {

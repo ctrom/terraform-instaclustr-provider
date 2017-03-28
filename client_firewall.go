@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 )
 
@@ -22,14 +23,14 @@ type FirewallRule struct {
 }
 
 // List returns the firewall rules for a cluster
-func (fc *FirewallClient) List(clusterID string) ([]Firewall, error) {
+func (fc *FirewallClient) List(clusterID string) ([]*Firewall, error) {
 	response, err := fc.client.doGet(strings.Join([]string{clusterID, "firewallRules"}, "/"))
 	if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
 
-	firewall := []Firewall{}
+	firewall := []*Firewall{}
 	err = json.NewDecoder(response.Body).Decode(firewall)
 	if err != nil {
 		return nil, err
@@ -90,5 +91,8 @@ func (fc *FirewallClient) Delete(clusterID, network string) error {
 		return err
 	}
 	defer response.Body.Close()
+	if response.StatusCode != 202 {
+		return fmt.Errorf("Firewall Delete did not return 202 [%d]", response.StatusCode)
+	}
 	return nil
 }
