@@ -1,201 +1,167 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"net/http"
 	"strings"
 
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
+// FirewallClient is a client for interacting with Firewall rules
+type FirewallClient struct {
+	client *InstaclustrClient
+}
+
+// Firewall is the response from the Firewall API
+type Firewall struct {
+	Network string         `json:"network"`
+	Rules   []FirewallRule `json:"rules"`
+}
+
+// FirewallRule is a collection inside Firewall
+type FirewallRule struct {
+	Type string `json:"type"`
+}
+
+// List returns the firewall rules for a cluster
+func (fc *FirewallClient) List(clusterID string) ([]Firewall, error) {
+	response, err := fc.client.doGet(strings.Join([]string{clusterID, "firewallRules"}, "/"))
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	firewall := []Firewall{}
+	err = json.NewDecoder(response.Body).Decode(firewall)
+	if err != nil {
+		return nil, err
+	}
+	return firewall, nil
+}
+
+// Create adds a firewall rule to a cluster for the provided network CIDR
+func (fc *FirewallClient) Create(clusterID, network string) error {
+	firewall := Firewall{
+		Network: network,
+		Rules: []FirewallRule{
+			FirewallRule{
+				Type: "CASSANDRA",
+			},
+			FirewallRule{
+				Type: "SPARK",
+			},
+			FirewallRule{
+				Type: "SPARK_JOBSERVER",
+			},
+		},
+	}
+	bytes, err := json.Marshal(firewall)
+	if err != nil {
+		return err
+	}
+	response, err := fc.client.doPost(strings.Join([]string{clusterID, "firewallRules"}, "/"), bytes)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	return nil
+}
+
+// Delete removes a network firewall rule from a cluster
+func (fc *FirewallClient) Delete(clusterID, network string) error {
+	firewall := Firewall{
+		Network: network,
+		Rules: []FirewallRule{
+			FirewallRule{
+				Type: "CASSANDRA",
+			},
+			FirewallRule{
+				Type: "SPARK",
+			},
+			FirewallRule{
+				Type: "SPARK_JOBSERVER",
+			},
+		},
+	}
+	bytes, err := json.Marshal(firewall)
+	if err != nil {
+		return err
+	}
+	response, err := fc.client.doDelete(strings.Join([]string{clusterID, "firewallRules"}, "/"), bytes)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	return nil
+}
+
 func resourceFirewallRule() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceInstaclustrFirewallRuleCreate,
 		Read:   resourceInstaclustrFirewallRuleRead,
-		Update: resourceInstaclustrFirewallRuleUpdate,
 		Delete: resourceInstaclustrFirewallRuleDelete,
 
 		Schema: map[string]*schema.Schema{
-			"rule": &schema.Schema{
+			"network": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 			},
 			"cluster_id": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 			},
 		},
 	}
 }
 
 func resourceInstaclustrFirewallRuleCreate(d *schema.ResourceData, m interface{}) error {
-	rule := d.Get("rule").(string)
-	p := getJsonObject(d, m)
-
-	if !isExistingFirewallRule(p, rule) {
-		log.Println("[DEBUG] Creating firewall rule in instaclustr")
-		addFireWallRule(rule, d, m)
-		d.SetId("Instaclustr_" + rule)
-	} else {
-		log.Println("[DEBUG] Firewall rule was already set in instaclustr")
-		d.SetId("Instaclustr_" + rule)
+	network := d.Get("network").(string)
+	clusterID := d.Get("cluster_id").(string)
+	client := m.(*InstaclustrClient).FirewallClient()
+	err := client.Create(clusterID, network)
+	if err != nil {
+		d.SetId("")
+		return err
 	}
-	return nil
+	return resourceInstaclustrFirewallRuleRead(d, m)
 }
 
 func resourceInstaclustrFirewallRuleRead(d *schema.ResourceData, m interface{}) error {
-	return nil
-}
-
-func resourceInstaclustrFirewallRuleUpdate(d *schema.ResourceData, m interface{}) error {
-	oA, nA := d.GetChange("rule")
-	oldrule := oA.(string)
-	newrule := nA.(string)
-	p := getJsonObject(d, m)
-
-	if isExistingFirewallRule(p, oldrule) {
-		log.Println("[DEBUG] Deleting firewall rule in instaclustr")
-		deleteFireWallRule(oldrule, d, m)
-	} else {
-		log.Println("[DEBUG] Firewall rule was already deleted in instaclustr")
+	client := m.(*InstaclustrClient).FirewallClient()
+	clusterID := d.Get("cluster_id").(string)
+	firewallRules, err := client.List(clusterID)
+	if err != nil {
+		return err
 	}
-
-	if !isExistingFirewallRule(p, newrule) {
-		log.Println("[DEBUG] Creating firewall rule in instaclustr")
-		addFireWallRule(newrule, d, m)
-		d.SetId("Instaclustr_" + newrule)
+	var networkRule *Firewall
+	for _, f := range firewallRules {
+		if f.Network == d.Get("network").(string) {
+			networkRule = &f
+		}
+	}
+	if networkRule == nil {
+		d.SetId("")
 	} else {
-		log.Println("[DEBUG] Firewall rule was already set in instaclustr")
+		d.SetId(firewallID(clusterID, networkRule.Network))
 	}
 	return nil
 }
 
 func resourceInstaclustrFirewallRuleDelete(d *schema.ResourceData, m interface{}) error {
-	rule := d.Get("rule").(string)
-	p := getJsonObject(d, m)
-
-	if isExistingFirewallRule(p, rule) {
-		log.Println("[DEBUG] Deleting firewall rule in instaclustr")
-		deleteFireWallRule(rule, d, m)
-		d.SetId("")
-	} else {
-		log.Println("[DEBUG] Firewall rule was already deleted in instaclustr")
+	network := d.Get("network").(string)
+	clusterID := d.Get("clusterId").(string)
+	client := m.(*InstaclustrClient).FirewallClient()
+	err := client.Delete(clusterID, network)
+	if err != nil {
+		return nil
 	}
+	d.SetId("")
 	return nil
 }
 
-type InstaclustrJSONData struct {
-	Network string `json:"network"`
-	Rules   []struct {
-		Type   string `json:"type"`
-		Status string `json:"status"`
-	} `json:"rules"`
-}
-
-type InstaclustrJSON []InstaclustrJSONData
-
-func addFireWallRule(rule string, d *schema.ResourceData, m interface{}) {
-	evaluateFireWallRule("POST", rule, d, m)
-}
-
-func deleteFireWallRule(rule string, d *schema.ResourceData, m interface{}) {
-	evaluateFireWallRule("DELETE", rule, d, m)
-}
-
-func evaluateFireWallRule(requestType string, rule string, d *schema.ResourceData, m interface{}) {
-	cluster_id := d.Get("cluster_id").(string)
-	config := m.(*Config)
-	username := config.AccessKey
-	passwd := config.SecretKey
-	apiUrl := config.Url
-
-	if username == "" {
-		panic("Must set environment variable for instaclustr <INSTACLUSTR_ACCESS_KEY>")
-	}
-	if passwd == "" {
-		panic("Must set environment variable for instaclustr <INSTACLUSTR_SECRET_KEY>")
-	}
-
-	var jsonStr = []byte(fmt.Sprintf(`
-			{
-				"network": "%s",
-				"rules":[
-					{
-						"type":"CASSANDRA"
-					}
-				]
-			}`, rule))
-
-	req, err := http.NewRequest(requestType, strings.Join([]string{apiUrl, cluster_id, "firewallRules"}, "/"), bytes.NewBuffer(jsonStr))
-	req.Header.Set("X-Custom-Header", "testing")
-	req.Header.Set("Content-Type", "application/json")
-	req.SetBasicAuth(username, passwd)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
-}
-
-func isExistingFirewallRule(p InstaclustrJSON, ip string) bool {
-	firewallRules := len(p)
-	firewallRulesExist := false
-	for i := 0; i < firewallRules; i++ {
-		if p[i].Network == ip {
-			firewallRulesExist = true
-		}
-	}
-	return firewallRulesExist
-}
-
-func getJsonObject(d *schema.ResourceData, m interface{}) InstaclustrJSON {
-	var p InstaclustrJSON
-	s := getJsonText(d, m)
-
-	errs := json.Unmarshal([]byte(s), &p)
-	if errs != nil {
-		panic(errs)
-	}
-	return p
-}
-
-func getJsonText(d *schema.ResourceData, m interface{}) string {
-	resp := getRequest(d, m)
-	return getRequestToString(resp)
-}
-
-func getRequest(d *schema.ResourceData, m interface{}) *http.Response {
-	config := m.(*Config)
-	username := config.AccessKey
-	passwd := config.SecretKey
-	if username == "" {
-		panic("Must set environment variable for instaclustr <INSTACLUSTR_ACCESS_KEY>")
-	}
-	if passwd == "" {
-		panic("Must set environment variable for instaclustr <INSTACLUSTR_SECRET_KEY>")
-	}
-	client := &http.Client{}
-	firewall_rules_url := d.Get("firewall_rules_url").(string)
-	request, err := http.NewRequest("GET", firewall_rules_url, nil)
-
-	request.SetBasicAuth(username, passwd)
-	response, err := client.Do(request)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return response
-}
-
-func getRequestToString(resp *http.Response) string {
-	bodyText, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return string(bodyText)
+func firewallID(clusterID, network string) string {
+	return fmt.Sprintf("%s:%s", clusterID, network)
 }

@@ -6,6 +6,8 @@ pipeline:
   build:
     image: golang:1.8.0-alpine
     commands:
+      - go vet .
+      - go test .
       - go build -o terraform-provider-instaclustr
       - tar -zcvf terraform-provider-instaclustr-linux-amd64.tar.gz terraform-provider-instaclustr
 
