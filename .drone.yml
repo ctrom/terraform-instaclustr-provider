@@ -19,7 +19,7 @@ pipeline:
     access_key: ${PN_AWS_ACCESS_KEY_ID}
     secret_key: ${PN_AWS_SECRET_ACCESS_KEY}
     source: terraform-provider-instaclustr-linux-amd64.tar.gz
-    target: /terraform-provider-instaclustr/terraform-provider-instaclustr-linux-amd64.tar.gz
+    target: /terraform-provider-instaclustr
     when:
       local: false
       branch: master
