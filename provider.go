@@ -29,7 +29,8 @@ func Provider() *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"instaclustr_firewall_rule": resourceFirewallRule(),
+			"instaclustr_firewall_rule":          resourceFirewallRule(),
+			"instaclustr_vpc_peering_connection": resourceVpcPeeringConnection(),
 		},
 		ConfigureFunc: configureProvider,
 	}

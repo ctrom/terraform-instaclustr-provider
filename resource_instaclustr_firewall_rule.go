@@ -1,100 +1,12 @@
 package main
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/hashicorp/terraform/helper/schema"
 )
-
-// FirewallClient is a client for interacting with Firewall rules
-type FirewallClient struct {
-	client *InstaclustrClient
-}
-
-// Firewall is the response from the Firewall API
-type Firewall struct {
-	Network string         `json:"network"`
-	Rules   []FirewallRule `json:"rules"`
-}
-
-// FirewallRule is a collection inside Firewall
-type FirewallRule struct {
-	Type string `json:"type"`
-}
-
-// List returns the firewall rules for a cluster
-func (fc *FirewallClient) List(clusterID string) ([]Firewall, error) {
-	response, err := fc.client.doGet(strings.Join([]string{clusterID, "firewallRules"}, "/"))
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-
-	firewall := []Firewall{}
-	err = json.NewDecoder(response.Body).Decode(firewall)
-	if err != nil {
-		return nil, err
-	}
-	return firewall, nil
-}
-
-// Create adds a firewall rule to a cluster for the provided network CIDR
-func (fc *FirewallClient) Create(clusterID, network string) error {
-	firewall := Firewall{
-		Network: network,
-		Rules: []FirewallRule{
-			FirewallRule{
-				Type: "CASSANDRA",
-			},
-			FirewallRule{
-				Type: "SPARK",
-			},
-			FirewallRule{
-				Type: "SPARK_JOBSERVER",
-			},
-		},
-	}
-	bytes, err := json.Marshal(firewall)
-	if err != nil {
-		return err
-	}
-	response, err := fc.client.doPost(strings.Join([]string{clusterID, "firewallRules"}, "/"), bytes)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-	return nil
-}
-
-// Delete removes a network firewall rule from a cluster
-func (fc *FirewallClient) Delete(clusterID, network string) error {
-	firewall := Firewall{
-		Network: network,
-		Rules: []FirewallRule{
-			FirewallRule{
-				Type: "CASSANDRA",
-			},
-			FirewallRule{
-				Type: "SPARK",
-			},
-			FirewallRule{
-				Type: "SPARK_JOBSERVER",
-			},
-		},
-	}
-	bytes, err := json.Marshal(firewall)
-	if err != nil {
-		return err
-	}
-	response, err := fc.client.doDelete(strings.Join([]string{clusterID, "firewallRules"}, "/"), bytes)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-	return nil
-}
 
 func resourceFirewallRule() *schema.Resource {
 	return &schema.Resource{
@@ -102,7 +14,7 @@ func resourceFirewallRule() *schema.Resource {
 		Read:   resourceInstaclustrFirewallRuleRead,
 		Delete: resourceInstaclustrFirewallRuleDelete,
 		Importer: &schema.ResourceImporter{
-			State: resourceInstaclustrFirewallRuleImport,
+			State: schema.ImportStatePassthrough,
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -121,9 +33,9 @@ func resourceFirewallRule() *schema.Resource {
 }
 
 func resourceInstaclustrFirewallRuleCreate(d *schema.ResourceData, m interface{}) error {
+	client := m.(*InstaclustrClient).FirewallClient()
 	network := d.Get("network").(string)
 	clusterID := d.Get("cluster_id").(string)
-	client := m.(*InstaclustrClient).FirewallClient()
 	err := client.Create(clusterID, network)
 	if err != nil {
 		d.SetId("")
@@ -134,15 +46,19 @@ func resourceInstaclustrFirewallRuleCreate(d *schema.ResourceData, m interface{}
 
 func resourceInstaclustrFirewallRuleRead(d *schema.ResourceData, m interface{}) error {
 	client := m.(*InstaclustrClient).FirewallClient()
-	clusterID := d.Get("cluster_id").(string)
+	clusterID, network, err := splitFirewallID(d.Id())
+	if err != nil {
+		d.SetId("")
+		return err
+	}
 	firewallRules, err := client.List(clusterID)
 	if err != nil {
 		return err
 	}
 	var networkRule *Firewall
 	for _, f := range firewallRules {
-		if f.Network == d.Get("network").(string) {
-			networkRule = &f
+		if f.Network == network {
+			networkRule = f
 		}
 	}
 	if networkRule == nil {
@@ -154,10 +70,13 @@ func resourceInstaclustrFirewallRuleRead(d *schema.ResourceData, m interface{}) 
 }
 
 func resourceInstaclustrFirewallRuleDelete(d *schema.ResourceData, m interface{}) error {
-	network := d.Get("network").(string)
-	clusterID := d.Get("clusterId").(string)
 	client := m.(*InstaclustrClient).FirewallClient()
-	err := client.Delete(clusterID, network)
+	clusterID, network, err := splitFirewallID(d.Id())
+	if err != nil {
+		d.SetId("")
+		return err
+	}
+	err = client.Delete(clusterID, network)
 	if err != nil {
 		return nil
 	}
@@ -165,14 +84,14 @@ func resourceInstaclustrFirewallRuleDelete(d *schema.ResourceData, m interface{}
 	return nil
 }
 
-func resourceInstaclustrFirewallRuleImport(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
-	err := resourceInstaclustrFirewallRuleRead(d, m)
-	if err != nil {
-		return []*schema.ResourceData{}, err
-	}
-	return []*schema.ResourceData{d}, nil
-}
-
 func firewallID(clusterID, network string) string {
 	return fmt.Sprintf("%s:%s", clusterID, network)
+}
+
+func splitFirewallID(id string) (string, string, error) {
+	tokens := strings.Split(id, ":")
+	if len(tokens) != 2 {
+		return "", "", errors.New("Must supply ID in format of <clusterDatacenterID>:<network>")
+	}
+	return tokens[0], tokens[1], nil
 }
