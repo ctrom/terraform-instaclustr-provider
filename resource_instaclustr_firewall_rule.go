@@ -101,6 +101,9 @@ func resourceFirewallRule() *schema.Resource {
 		Create: resourceInstaclustrFirewallRuleCreate,
 		Read:   resourceInstaclustrFirewallRuleRead,
 		Delete: resourceInstaclustrFirewallRuleDelete,
+		Importer: &schema.ResourceImporter{
+			State: resourceInstaclustrFirewallRuleImport,
+		},
 
 		Schema: map[string]*schema.Schema{
 			"network": &schema.Schema{
@@ -160,6 +163,14 @@ func resourceInstaclustrFirewallRuleDelete(d *schema.ResourceData, m interface{}
 	}
 	d.SetId("")
 	return nil
+}
+
+func resourceInstaclustrFirewallRuleImport(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	err := resourceInstaclustrFirewallRuleRead(d, m)
+	if err != nil {
+		return []*schema.ResourceData{}, err
+	}
+	return []*schema.ResourceData{d}, nil
 }
 
 func firewallID(clusterID, network string) string {
