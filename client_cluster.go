@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
 )
 
 // ClusterClient creates a client for interfacing with the Instaclustr Cluster API
@@ -12,7 +14,7 @@ type ClusterClient struct {
 
 // CreateClusterRequest is the request object for provisioning new clusters
 type CreateClusterRequest struct {
-	ClusterName string                     `json:"clusterNamer"`
+	ClusterName string                     `json:"clusterName"`
 	Provider    string                     `json:"provider"`
 	Account     string                     `json:"account,omitempty"`
 	Version     string                     `json:"version"`
@@ -23,7 +25,7 @@ type CreateClusterRequest struct {
 
 // CreateClusterRequestRegion is the region sub section for cluster creation
 type CreateClusterRequestRegion struct {
-	Datacenter                    string                                     `json:"datacentre"`
+	Datacenter                    string                                     `json:"dataCentre"`
 	AuthnAuthz                    bool                                       `json:"authnAuthz,string"`
 	ClientEncryption              bool                                       `json:"clientEncryption,string"`
 	UsePrivateBroadcastRPCAddress bool                                       `json:"usePrivateBroadcastRPCAddress,string"`
@@ -103,13 +105,17 @@ type ClusterListStatus struct {
 
 // List returns a list of cluster statuses
 func (c *ClusterClient) List() ([]*ClusterListStatus, error) {
-	response, err := c.client.doGet("/")
+	response, err := c.client.doGet("")
 	if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
+	responseData, _ := ioutil.ReadAll(response.Body)
+	if response.StatusCode != 200 {
+		return nil, fmt.Errorf("Create Cluster did not return 200 [%d]:\n%s", response.StatusCode, string(responseData))
+	}
 	clusters := []*ClusterListStatus{}
-	err = json.NewDecoder(response.Body).Decode(clusters)
+	err = json.Unmarshal(responseData, &clusters)
 	if err != nil {
 		return nil, err
 	}
@@ -150,13 +156,18 @@ func (c *ClusterClient) Create(request CreateClusterRequest) (*CreateClusterResp
 	if err != nil {
 		return nil, err
 	}
-	response, err := c.client.doPost("/", bytes)
+	log.Println(string(bytes))
+	response, err := c.client.doPost("", bytes)
 	if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
+	responseData, _ := ioutil.ReadAll(response.Body)
+	if response.StatusCode != 202 {
+		return nil, fmt.Errorf("Create Cluster did not return 202 [%d]:\n%s", response.StatusCode, string(responseData))
+	}
 	cluster := &CreateClusterResponse{}
-	err = json.NewDecoder(response.Body).Decode(cluster)
+	err = json.Unmarshal(responseData, cluster)
 	if err != nil {
 		return nil, err
 	}
