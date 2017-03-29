@@ -19,6 +19,7 @@ func TestAccInstaclustrCluster_basic(t *testing.T) {
 				Config: testAccInstaclustrClusterConfig,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckInstaclustrClusterExists("instaclustr_cluster.foo", &cluster),
+					resource.TestCheckResourceAttrSet("instaclustr_cluster.foo", "datacenter.0.datacenter_id"),
 				),
 			},
 		},

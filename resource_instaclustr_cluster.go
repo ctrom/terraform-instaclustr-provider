@@ -175,11 +175,12 @@ func resourceInstaclustrClusterRead(d *schema.ResourceData, m interface{}) error
 
 	datacenter := cluster.Datacenters[0]
 	node := datacenter.Nodes[0]
-	dc := map[string]interface{}{}
+	dcResource := d.Get("datacenter")
+	dc := dcResource.([]interface{})[0].(map[string]interface{})
 	dc["provider_name"] = datacenter.Provider
 	dc["region"] = datacenter.Name
 	dc["size"] = node.Size
-	dc["datacenter_id"] = datacenter.ID
+	// dc["datacenter_id"] = datacenter.ID
 	dc["auth"] = datacenter.PasswordAuthentication && datacenter.UserAuthorization
 	dc["client_encryption"] = datacenter.ClientEncryption
 	dc["use_private_rpc_broadcast_address"] = datacenter.UsePrivateBroadcastRPCAddress
@@ -202,7 +203,12 @@ func resourceInstaclustrClusterRead(d *schema.ResourceData, m interface{}) error
 		rackSet = append(rackSet, rack)
 	}
 	dc["rack"] = rackSet
-	d.Set("datacenter", []map[string]interface{}{dc})
+	d.Set("datacenter", dcResource)
+
+	dcResource = d.Get("datacenter")
+	dc = dcResource.([]interface{})[0].(map[string]interface{})
+	dc["datacenter_id"] = datacenter.ID
+	d.Set("datacenter", dcResource)
 
 	return nil
 }
