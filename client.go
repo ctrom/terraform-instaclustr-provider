@@ -19,9 +19,16 @@ func (c *InstaclustrClient) FirewallClient() *FirewallClient {
 	}
 }
 
-// VpcPeeringClient creates a client fo rinterfacing with the Instaclustr Vpc Peering API
+// VpcPeeringClient creates a client for interfacing with the Instaclustr Vpc Peering API
 func (c *InstaclustrClient) VpcPeeringClient() *VpcPeeringClient {
 	return &VpcPeeringClient{
+		client: c,
+	}
+}
+
+// ClusterClient creates a client for interfacing with the Instaclustr Cluster API
+func (c *InstaclustrClient) ClusterClient() *ClusterClient {
+	return &ClusterClient{
 		client: c,
 	}
 }

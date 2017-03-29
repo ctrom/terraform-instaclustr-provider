@@ -28,7 +28,11 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("INSTACLUSTR_URL", "https://api.instaclustr.com/provisioning/v1"),
 			},
 		},
+		DataSourcesMap: map[string]*schema.Resource{
+			"instaclustr_cluster_ips": dataSourceInstaclustrClusterIPs(),
+		},
 		ResourcesMap: map[string]*schema.Resource{
+			"instaclustr_cluster":                resourceCluster(),
 			"instaclustr_firewall_rule":          resourceFirewallRule(),
 			"instaclustr_vpc_peering_connection": resourceVpcPeeringConnection(),
 		},

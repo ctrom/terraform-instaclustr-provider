@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"strings"
 )
 
@@ -29,9 +30,12 @@ func (fc *FirewallClient) List(clusterID string) ([]*Firewall, error) {
 		return nil, err
 	}
 	defer response.Body.Close()
-
+	responseData, _ := ioutil.ReadAll(response.Body)
+	if response.StatusCode != 200 {
+		return nil, fmt.Errorf("List Firewall Rules did not return 200 [%d]:\n%s", response.StatusCode, string(responseData))
+	}
 	firewall := []*Firewall{}
-	err = json.NewDecoder(response.Body).Decode(firewall)
+	err = json.Unmarshal(responseData, &firewall)
 	if err != nil {
 		return nil, err
 	}
@@ -46,12 +50,6 @@ func (fc *FirewallClient) Create(clusterID, network string) error {
 			FirewallRule{
 				Type: "CASSANDRA",
 			},
-			FirewallRule{
-				Type: "SPARK",
-			},
-			FirewallRule{
-				Type: "SPARK_JOBSERVER",
-			},
 		},
 	}
 	bytes, err := json.Marshal(firewall)
@@ -63,6 +61,10 @@ func (fc *FirewallClient) Create(clusterID, network string) error {
 		return err
 	}
 	defer response.Body.Close()
+	responseData, _ := ioutil.ReadAll(response.Body)
+	if response.StatusCode != 202 {
+		return fmt.Errorf("Create Firewall Rule did not return 202 [%d]:\n%s\n%s", response.StatusCode, string(responseData), string(bytes))
+	}
 	return nil
 }
 
@@ -73,12 +75,6 @@ func (fc *FirewallClient) Delete(clusterID, network string) error {
 		Rules: []FirewallRule{
 			FirewallRule{
 				Type: "CASSANDRA",
-			},
-			FirewallRule{
-				Type: "SPARK",
-			},
-			FirewallRule{
-				Type: "SPARK_JOBSERVER",
 			},
 		},
 	}
@@ -91,8 +87,9 @@ func (fc *FirewallClient) Delete(clusterID, network string) error {
 		return err
 	}
 	defer response.Body.Close()
+	responseData, _ := ioutil.ReadAll(response.Body)
 	if response.StatusCode != 202 {
-		return fmt.Errorf("Firewall Delete did not return 202 [%d]", response.StatusCode)
+		return fmt.Errorf("Delete Firewall Rule did not return 202 [%d]:\n%s", response.StatusCode, string(responseData))
 	}
 	return nil
 }

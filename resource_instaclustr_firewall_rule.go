@@ -41,6 +41,7 @@ func resourceInstaclustrFirewallRuleCreate(d *schema.ResourceData, m interface{}
 		d.SetId("")
 		return err
 	}
+	d.SetId(firewallID(clusterID, network))
 	return resourceInstaclustrFirewallRuleRead(d, m)
 }
 
@@ -64,6 +65,8 @@ func resourceInstaclustrFirewallRuleRead(d *schema.ResourceData, m interface{}) 
 	if networkRule == nil {
 		d.SetId("")
 	} else {
+		d.Set("network", networkRule.Network)
+		d.Set("cluster_id", clusterID)
 		d.SetId(firewallID(clusterID, networkRule.Network))
 	}
 	return nil
