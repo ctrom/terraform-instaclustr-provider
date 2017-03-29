@@ -68,7 +68,7 @@ func resourceInstaclustrVpcPeeringConnectionCreate(d *schema.ResourceData, m int
 		return err
 	}
 	d.SetId(vpcPeeringConnectionID(clusterDatacenterID, response.ID))
-	return resourceInstaclustrFirewallRuleRead(d, m)
+	return resourceInstaclustrVpcPeeringConnectionRead(d, m)
 }
 
 func resourceInstaclustrVpcPeeringConnectionRead(d *schema.ResourceData, m interface{}) error {

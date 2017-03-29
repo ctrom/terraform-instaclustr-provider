@@ -19,7 +19,7 @@ func TestAccInstaclustrFirewallRule_basic(t *testing.T) {
 				Config: testAccInstaclustrFirewallRuleConfig,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckInstaclustrFirewallRuleExists("instaclustr_firewall_rule.foo", &firewall),
-					resource.TestCheckResourceAttr("instaclustr_firewall_rule.foo", "network", "172.23.0.0/22"),
+					resource.TestCheckResourceAttr("instaclustr_firewall_rule.foo", "network", "10.1.0.0/16"),
 				),
 			},
 		},
@@ -62,7 +62,6 @@ func testAccCheckInstaclustrFirewallRuleDestroy(s *terraform.State) error {
 				return fmt.Errorf("Firewall Rule still exists")
 			}
 		}
-		return nil
 	}
 	return nil
 }
@@ -97,6 +96,6 @@ resource "instaclustr_cluster" "foo" {
 
 resource "instaclustr_firewall_rule" "foo" {
   cluster_id = "${instaclustr_cluster.foo.id}"
-  network = "172.23.0.0/22"
+  network = "10.1.0.0/16"
 }
 `

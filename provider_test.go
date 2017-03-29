@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/hashicorp/terraform/builtin/providers/aws"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
 )
@@ -15,6 +16,7 @@ func init() {
 	testAccProvider = Provider()
 	testAccProviders = map[string]terraform.ResourceProvider{
 		"instaclustr": testAccProvider,
+		"aws":         aws.Provider(),
 	}
 }
 

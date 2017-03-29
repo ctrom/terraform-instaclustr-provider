@@ -69,15 +69,15 @@ func (c *VpcPeeringClient) Get(clusterDatacenterID, vpcPeeringConnectionID strin
 	}
 	defer response.Body.Close()
 	responseData, _ := ioutil.ReadAll(response.Body)
-	if response.StatusCode != 200 {
-		return nil, fmt.Errorf("Get VPC Peering Connection did not return 200 [%d]:\n%s", response.StatusCode, string(responseData))
+	if response.StatusCode != 202 {
+		return nil, fmt.Errorf("Get VPC Peering Connection did not return 202 [%d]:\n%s", response.StatusCode, string(responseData))
 	}
-	vpcPeer := VpcPeer{}
+	vpcPeer := &VpcPeer{}
 	err = json.Unmarshal(responseData, vpcPeer)
 	if err != nil {
 		return nil, err
 	}
-	return &vpcPeer, nil
+	return vpcPeer, nil
 }
 
 // Create submits a new VPC Peering Request
@@ -93,14 +93,14 @@ func (c *VpcPeeringClient) Create(clusterDatacenterID string, request *CreateVpc
 	defer response.Body.Close()
 	responseData, _ := ioutil.ReadAll(response.Body)
 	if response.StatusCode != 202 {
-		return nil, fmt.Errorf("Create VPC Peering Connection did not return 202 [%d]:\n%s", response.StatusCode, string(responseData))
+		return nil, fmt.Errorf("Create VPC Peering Connection did not return 202 [%d]:\n%s\n%s", response.StatusCode, string(responseData), string(bytes))
 	}
-	createResponse := CreateVpcPeerResponse{}
+	createResponse := &CreateVpcPeerResponse{}
 	err = json.Unmarshal(responseData, createResponse)
 	if err != nil {
 		return nil, err
 	}
-	return &createResponse, nil
+	return createResponse, nil
 }
 
 // Delete deletes an requested or existing VPC Peering Connection

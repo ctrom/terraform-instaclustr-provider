@@ -59,7 +59,6 @@ func testAccCheckInstaclustrClusterDestroy(s *terraform.State) error {
 				return fmt.Errorf("Cluster still exists")
 			}
 		}
-		return nil
 	}
 	return nil
 }

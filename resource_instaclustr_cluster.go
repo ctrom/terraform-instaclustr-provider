@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/terraform/helper/hashcode"
+	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -47,6 +49,10 @@ func resourceCluster() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
+			},
+			"region_datacenter_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
 			},
 			"region_auth": &schema.Schema{
 				Type:     schema.TypeBool,
@@ -128,6 +134,19 @@ func resourceInstaclustrClusterCreate(d *schema.ResourceData, m interface{}) err
 	if err != nil {
 		return err
 	}
+	stateConf := &resource.StateChangeConf{
+		Pending:    []string{"RUNNING", "GENESIS", "PROVISIONING", "PROVISIONED"},
+		Target:     []string{"PROVISIONED"},
+		Refresh:    clusterStateRefreshFunc(client, response.ID),
+		Timeout:    10 * time.Minute,
+		Delay:      1 * time.Second,
+		MinTimeout: 3 * time.Second,
+	}
+	_, waitErr := stateConf.WaitForState()
+	if waitErr != nil {
+		return fmt.Errorf(
+			"Error waiting for Cluster (%s) to be Running: %s", response.ID, waitErr)
+	}
 	d.SetId(response.ID)
 	return resourceInstaclustrClusterRead(d, m)
 }
@@ -144,6 +163,7 @@ func resourceInstaclustrClusterRead(d *schema.ResourceData, m interface{}) error
 	d.Set("region_default_network", fmt.Sprintf("%s/%d", cluster.ClusterNetwork.Network, cluster.ClusterNetwork.PrefixLength))
 
 	datacenter := cluster.Datacenters[0]
+	d.Set("region_datacenter_id", datacenter.ID)
 	d.Set("provider_name", datacenter.Provider)
 	d.Set("region_datacenter", datacenter.Name)
 	d.Set("region_auth", datacenter.PasswordAuthentication && datacenter.UserAuthorization)
@@ -190,4 +210,14 @@ func rackHash(v interface{}) int {
 	a := v.(map[string]interface{})
 	buf.WriteString(fmt.Sprintf("%s-%d", a["name"].(string), a["node_count"].(int)))
 	return hashcode.String(buf.String())
+}
+
+func clusterStateRefreshFunc(client *ClusterClient, clusterID string) resource.StateRefreshFunc {
+	return func() (interface{}, string, error) {
+		cluster, err := client.Get(clusterID)
+		if err != nil {
+			return nil, "", err
+		}
+		return cluster, cluster.ClusterStatus, nil
+	}
 }
