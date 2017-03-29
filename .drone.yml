@@ -10,6 +10,9 @@ pipeline:
       - TF_ACC=1 go test . -v
       - go build -o terraform-provider-instaclustr
       - tar -zcvf terraform-provider-instaclustr-linux-amd64.tar.gz terraform-provider-instaclustr
+    environment:
+      - INSTACLUSTR_ACCESS_KEY=${INSTACLUSTR_ACCESS_KEY}
+      - INSTACLUSTR_SECRET_KEY=${INSTACLUSTR_SECRET_KEY}
 
   s3:
     image: plugins/s3
