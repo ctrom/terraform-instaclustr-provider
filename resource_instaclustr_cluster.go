@@ -151,7 +151,7 @@ func resourceInstaclustrClusterCreate(d *schema.ResourceData, m interface{}) err
 		Target:     []string{"PROVISIONED"},
 		Refresh:    clusterStateRefreshFunc(client, response.ID),
 		Timeout:    10 * time.Minute,
-		Delay:      1 * time.Second,
+		Delay:      3 * time.Second,
 		MinTimeout: 3 * time.Second,
 	}
 	_, waitErr := stateConf.WaitForState()
