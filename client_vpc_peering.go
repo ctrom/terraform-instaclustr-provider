@@ -93,7 +93,7 @@ func (c *VpcPeeringClient) Create(clusterDatacenterID string, request *CreateVpc
 	defer response.Body.Close()
 	responseData, _ := ioutil.ReadAll(response.Body)
 	if response.StatusCode != 202 {
-		return nil, fmt.Errorf("Create VPC Peering Connection did not return 202 [%d]:\n%s\n%s", response.StatusCode, string(responseData), string(bytes))
+		return nil, fmt.Errorf("Create VPC Peering Connection did not return 202 [%d]:\n%s\n%s\n%s", response.StatusCode, string(responseData), string(bytes), "ID: "+clusterDatacenterID)
 	}
 	createResponse := &CreateVpcPeerResponse{}
 	err = json.Unmarshal(responseData, createResponse)

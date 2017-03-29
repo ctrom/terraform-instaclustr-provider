@@ -66,19 +66,21 @@ func testAccCheckInstaclustrClusterDestroy(s *terraform.State) error {
 const testAccInstaclustrClusterConfig = `
 resource "instaclustr_cluster" "foo" {
   name = "terraform-test-acc"
-  account = "PeopleNet"
-  provider_name = "AWS_VPC"
   version = "apache-cassandra-3.0.10"
-  size = "t2.small"
-  region_datacenter = "US_EAST_1"
-  region_default_network = "10.0.0.0/16"
-  region_rack_allocation {
-    name = "us-east-1a"
-    node_count = 1
-  }
-  region_rack_allocation {
-    name = "us-east-1b"
-    node_count = 1
-  }
+  datacenter {
+    provider_name = "AWS_VPC"
+    account = "PeopleNet"
+    region = "US_EAST_1"
+    size = "t2.small"
+    default_network = "10.0.0.0/16"
+    rack {
+      name = "us-east-1a"
+      node_count = 1
+    }
+    rack {
+      name = "us-east-1b"
+      node_count = 1
+    }
+  }  
 }
 `

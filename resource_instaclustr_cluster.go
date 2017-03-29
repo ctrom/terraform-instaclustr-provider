@@ -25,74 +25,85 @@ func resourceCluster() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
-			"provider_name": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
-			},
-			"account": &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
-			},
 			"version": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			"size": &schema.Schema{
-				Type:     schema.TypeString,
+			"datacenter": &schema.Schema{
+				Type:     schema.TypeList,
 				Required: true,
 				ForceNew: true,
-			},
-			"region_datacenter": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
-			},
-			"region_datacenter_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"region_auth": &schema.Schema{
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-				ForceNew: true,
-			},
-			"region_client_encryption": &schema.Schema{
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-				ForceNew: true,
-			},
-			"region_use_private_rpc_broadcast_address": &schema.Schema{
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-				ForceNew: true,
-			},
-			"region_default_network": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
-			},
-			"region_rack_allocation": &schema.Schema{
-				Type:     schema.TypeSet,
-				Required: true,
-				ForceNew: true,
-				MinItems: 2,
+				MinItems: 1,
+				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"name": &schema.Schema{
+						"provider_name": &schema.Schema{
 							Type:     schema.TypeString,
 							Required: true,
 							ForceNew: true,
 						},
-						"node_count": &schema.Schema{
-							Type:     schema.TypeInt,
+						"account": &schema.Schema{
+							Type:     schema.TypeString,
+							Optional: true,
+							ForceNew: true,
+						},
+						"region": &schema.Schema{
+							Type:     schema.TypeString,
 							Required: true,
 							ForceNew: true,
+						},
+						"size": &schema.Schema{
+							Type:     schema.TypeString,
+							Required: true,
+							ForceNew: true,
+						},
+						"datacenter_id": &schema.Schema{
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"auth": &schema.Schema{
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+							ForceNew: true,
+						},
+						"client_encryption": &schema.Schema{
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+							ForceNew: true,
+						},
+						"use_private_rpc_broadcast_address": &schema.Schema{
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+							ForceNew: true,
+						},
+						"default_network": &schema.Schema{
+							Type:     schema.TypeString,
+							Required: true,
+							ForceNew: true,
+						},
+						"rack": &schema.Schema{
+							Type:     schema.TypeSet,
+							Required: true,
+							ForceNew: true,
+							MinItems: 2,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"name": &schema.Schema{
+										Type:     schema.TypeString,
+										Required: true,
+										ForceNew: true,
+									},
+									"node_count": &schema.Schema{
+										Type:     schema.TypeInt,
+										Required: true,
+										ForceNew: true,
+									},
+								},
+							},
 						},
 					},
 				},
@@ -103,27 +114,28 @@ func resourceCluster() *schema.Resource {
 
 func resourceInstaclustrClusterCreate(d *schema.ResourceData, m interface{}) error {
 	client := m.(*InstaclustrClient).ClusterClient()
+	datacenter := d.Get("datacenter").([]interface{})[0].(map[string]interface{})
 	request := CreateClusterRequest{
 		ClusterName: d.Get("name").(string),
-		Provider:    d.Get("provider_name").(string),
 		Version:     d.Get("version").(string),
-		Size:        d.Get("size").(string),
+
+		Provider: datacenter["provider_name"].(string),
+		Size:     datacenter["size"].(string),
 		Region: CreateClusterRequestRegion{
-			Datacenter:                    d.Get("region_datacenter").(string),
-			ClientEncryption:              d.Get("region_client_encryption").(bool),
-			UsePrivateBroadcastRPCAddress: d.Get("region_use_private_rpc_broadcast_address").(bool),
-			DefaultNetwork:                d.Get("region_default_network").(string),
+			Datacenter:                    datacenter["region"].(string),
+			ClientEncryption:              datacenter["client_encryption"].(bool),
+			UsePrivateBroadcastRPCAddress: datacenter["use_private_rpc_broadcast_address"].(bool),
+			DefaultNetwork:                datacenter["default_network"].(string),
+			AuthnAuthz:                    datacenter["auth"].(bool),
 			RackAllocations:               []CreateClusterRequestRegionRackAllocation{},
 			FirewallRules:                 []string{},
 		},
 	}
-	if account, ok := d.GetOk("account"); ok {
+	if account, ok := datacenter["account"]; ok {
 		request.Account = account.(string)
 	}
-	if auth, ok := d.GetOk("region_auth"); ok {
-		request.Region.AuthnAuthz = auth.(bool)
-	}
-	for _, rack := range d.Get("region_rack_allocation").(*schema.Set).List() {
+
+	for _, rack := range datacenter["rack"].(*schema.Set).List() {
 		alloc := rack.(map[string]interface{})
 		request.Region.RackAllocations = append(request.Region.RackAllocations, CreateClusterRequestRegionRackAllocation{
 			Name:      alloc["name"].(string),
@@ -160,15 +172,18 @@ func resourceInstaclustrClusterRead(d *schema.ResourceData, m interface{}) error
 	}
 	d.Set("name", cluster.ClusterName)
 	d.Set("version", cluster.CassandraVersion)
-	d.Set("region_default_network", fmt.Sprintf("%s/%d", cluster.ClusterNetwork.Network, cluster.ClusterNetwork.PrefixLength))
 
 	datacenter := cluster.Datacenters[0]
-	d.Set("region_datacenter_id", datacenter.ID)
-	d.Set("provider_name", datacenter.Provider)
-	d.Set("region_datacenter", datacenter.Name)
-	d.Set("region_auth", datacenter.PasswordAuthentication && datacenter.UserAuthorization)
-	d.Set("region_client_encryption", datacenter.ClientEncryption)
-	d.Set("region_use_private_rpc_broadcast_address", datacenter.UsePrivateBroadcastRPCAddress)
+	node := datacenter.Nodes[0]
+	dc := map[string]interface{}{}
+	dc["provider_name"] = datacenter.Provider
+	dc["region"] = datacenter.Name
+	dc["size"] = node.Size
+	dc["datacenter_id"] = datacenter.ID
+	dc["auth"] = datacenter.PasswordAuthentication && datacenter.UserAuthorization
+	dc["client_encryption"] = datacenter.ClientEncryption
+	dc["use_private_rpc_broadcast_address"] = datacenter.UsePrivateBroadcastRPCAddress
+	dc["default_network"] = fmt.Sprintf("%s/%d", cluster.ClusterNetwork.Network, cluster.ClusterNetwork.PrefixLength)
 
 	racks := map[string]map[string]interface{}{}
 	for _, n := range datacenter.Nodes {
@@ -186,11 +201,8 @@ func resourceInstaclustrClusterRead(d *schema.ResourceData, m interface{}) error
 	for _, rack := range racks {
 		rackSet = append(rackSet, rack)
 	}
-	d.Set("rack_allocation", schema.NewSet(rackHash, rackSet))
-
-	// From node
-	node := datacenter.Nodes[0]
-	d.Set("size", node.Size)
+	dc["rack"] = rackSet
+	d.Set("datacenter", []map[string]interface{}{dc})
 
 	return nil
 }
@@ -205,10 +217,27 @@ func resourceInstaclustrClusterDelete(d *schema.ResourceData, m interface{}) err
 	return nil
 }
 
-func rackHash(v interface{}) int {
+func datacenterHash(v interface{}) int {
 	var buf bytes.Buffer
-	a := v.(map[string]interface{})
-	buf.WriteString(fmt.Sprintf("%s-%d", a["name"].(string), a["node_count"].(int)))
+	datacenter := v.(map[string]interface{})
+	buf.WriteString(fmt.Sprintf("%s-", datacenter["provider_name"].(string)))
+	if account, ok := datacenter["account"]; ok {
+		buf.WriteString(fmt.Sprintf("%s-", account.(string)))
+	}
+	buf.WriteString(fmt.Sprintf("%s-", datacenter["region"].(string)))
+	buf.WriteString(fmt.Sprintf("%s-", datacenter["size"].(string)))
+	buf.WriteString(fmt.Sprintf("%s-", datacenter["datacenter_id"].(string)))
+	buf.WriteString(fmt.Sprintf("%t-", datacenter["auth"].(bool)))
+	buf.WriteString(fmt.Sprintf("%t-", datacenter["client_encryption"].(bool)))
+	buf.WriteString(fmt.Sprintf("%t-", datacenter["use_private_rpc_broadcast_address"].(bool)))
+	buf.WriteString(fmt.Sprintf("%s-", datacenter["default_network"].(string)))
+
+	for _, rack := range datacenter["rack"].([]interface{}) {
+		var buf2 bytes.Buffer
+		r := rack.(map[string]interface{})
+		buf2.WriteString(fmt.Sprintf("%s-%d", r["name"], r["node_count"]))
+		buf.WriteString(fmt.Sprintf("%d-", hashcode.String(buf2.String())))
+	}
 	return hashcode.String(buf.String())
 }
 

@@ -87,26 +87,28 @@ data "aws_caller_identity" "current" {}
 
 resource "instaclustr_cluster" "foo" {
   name = "terraform-test-acc"
-  account = "PeopleNet"
-  provider_name = "AWS_VPC"
   version = "apache-cassandra-3.0.10"
-  size = "t2.small"
-  region_datacenter = "US_EAST_1"
-  region_default_network = "10.0.0.0/16"
-  region_rack_allocation {
-    name = "us-east-1a"
-    node_count = 1
-  }
-  region_rack_allocation {
-    name = "us-east-1b"
-    node_count = 1
-  }
+  datacenter {
+    provider_name = "AWS_VPC"
+    account = "PeopleNet"
+    region = "US_EAST_1"
+    size = "t2.small"
+    default_network = "10.0.0.0/16"
+    rack {
+      name = "us-east-1a"
+      node_count = 1
+    }
+    rack {
+      name = "us-east-1b"
+      node_count = 1
+    }
+  }  
 }
 
 resource "instaclustr_vpc_peering_connection" "main" {
   peer_vpc_id = "${aws_vpc.main.id}"
   peer_account_id = "${data.aws_caller_identity.current.account_id}"
   peer_subnet = "${aws_vpc.main.cidr_block}"
-  cluster_datacenter_id = "${instaclustr_cluster.foo.region_datacenter_id}"
+  cluster_datacenter_id = "${instaclustr_cluster.foo.datacenter.0.datacenter_id}"
 }
 `
