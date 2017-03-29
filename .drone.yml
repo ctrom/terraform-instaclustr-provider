@@ -1,7 +1,7 @@
 workspace:
   base: /go
   path: src/github.com/peoplenet/terraform-instaclustr-provider
-  
+branches: [ master, feature/* ]  
 pipeline:
   build:
     image: golang:1.8.0-alpine
