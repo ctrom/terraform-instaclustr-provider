@@ -52,7 +52,8 @@ func testAccCheckInstaclustrVpcPeeringConnectionExists(n string, pc *VpcPeer) re
 			return fmt.Errorf("VPC Peering Connection does not exists in state")
 		}
 		client := testAccProvider.Meta().(*InstaclustrClient).VpcPeeringClient()
-		connection, err := client.Get(rs.Primary.Attributes["cluster_datacenter_id"], rs.Primary.ID)
+		clusterDataCenterID, id, _ := splitVpcPeeringConnectionID(rs.Primary.ID)
+		connection, err := client.Get(clusterDataCenterID, id)
 		if err != nil {
 			return err
 		}
