@@ -7,7 +7,7 @@ pipeline:
     image: golang:1.8.0-alpine
     commands:
       - go vet .
-      - TF_ACC=1 go test . -v
+      - TF_LOG=INFO TF_ACC=1 go test . -v
       - go build -o terraform-provider-instaclustr
       - tar -zcvf terraform-provider-instaclustr-linux-amd64.tar.gz terraform-provider-instaclustr
     environment:
