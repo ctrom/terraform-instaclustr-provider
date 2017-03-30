@@ -13,6 +13,9 @@ pipeline:
     environment:
       - INSTACLUSTR_ACCESS_KEY=${INSTACLUSTR_ACCESS_KEY}
       - INSTACLUSTR_SECRET_KEY=${INSTACLUSTR_SECRET_KEY}
+      - AWS_ACCESS_KEY_ID=${PN_AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${PN_AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=us-east-1
 
   s3:
     image: plugins/s3
