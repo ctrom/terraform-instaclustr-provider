@@ -1,6 +1,10 @@
 package main
 
-import "github.com/hashicorp/terraform/helper/schema"
+import (
+	"fmt"
+
+	"github.com/hashicorp/terraform/helper/schema"
+)
 
 func dataSourceInstaclustrClusterIPs() *schema.Resource {
 	return &schema.Resource{
@@ -22,6 +26,10 @@ func dataSourceInstaclustrClusterIPs() *schema.Resource {
 				Computed: true,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 			},
+			"cidr_block": &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 		},
 	}
 }
@@ -35,6 +43,7 @@ func dataSourceInstaclustrClusterIPsRead(d *schema.ResourceData, m interface{}) 
 	publicIps, privateIps := ipsForCluster(cluster)
 
 	d.SetId(d.Get("cluster_id").(string))
+	d.Set("cidr_block", fmt.Sprintf("%s/%d", cluster.Datacenters[0].CdcNetwork.Network, cluster.Datacenters[0].CdcNetwork.PrefixLength))
 	d.Set("public_ips", publicIps)
 	d.Set("private_ips", privateIps)
 
