@@ -50,7 +50,7 @@ func (c *VpcPeeringClient) List(clusterDatacenterID string) ([]*VpcPeer, error) 
 	}
 	defer response.Body.Close()
 	responseData, _ := ioutil.ReadAll(response.Body)
-	if response.StatusCode != 200 || response.StatusCode != 202 {
+	if response.StatusCode != 200 && response.StatusCode != 202 {
 		return nil, fmt.Errorf("List VPC Peering Connection did not return 200/202 [%d]:\n%s", response.StatusCode, string(responseData))
 	}
 	vpcPeers := []*VpcPeer{}
@@ -69,7 +69,7 @@ func (c *VpcPeeringClient) Get(clusterDatacenterID, vpcPeeringConnectionID strin
 	}
 	defer response.Body.Close()
 	responseData, _ := ioutil.ReadAll(response.Body)
-	if response.StatusCode != 200 || response.StatusCode != 202 {
+	if response.StatusCode != 200 && response.StatusCode != 202 {
 		return nil, fmt.Errorf("Get VPC Peering Connection did not return 200/202 [%d]:\n%s", response.StatusCode, string(responseData))
 	}
 	vpcPeer := &VpcPeer{}
@@ -92,7 +92,7 @@ func (c *VpcPeeringClient) Create(clusterDatacenterID string, request *CreateVpc
 	}
 	defer response.Body.Close()
 	responseData, _ := ioutil.ReadAll(response.Body)
-	if response.StatusCode != 200 || response.StatusCode != 202 {
+	if response.StatusCode != 200 && response.StatusCode != 202 {
 		return nil, fmt.Errorf("Create VPC Peering Connection did not return 200/202 [%d]:\n%s\n%s\n%s", response.StatusCode, string(responseData), string(bytes), "ID: "+clusterDatacenterID)
 	}
 	createResponse := &CreateVpcPeerResponse{}
@@ -111,7 +111,7 @@ func (c *VpcPeeringClient) Delete(clusterDatacenterID, vpcPeeringConnectionID st
 	}
 	defer response.Body.Close()
 	responseData, _ := ioutil.ReadAll(response.Body)
-	if response.StatusCode != 200 || response.StatusCode != 202 {
+	if response.StatusCode != 200 && response.StatusCode != 202 {
 		return fmt.Errorf("Delete VPC Peering Connection did not return 200/202 [%d]:\n%s", response.StatusCode, string(responseData))
 	}
 	return nil
