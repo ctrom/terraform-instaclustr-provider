@@ -10,6 +10,7 @@ func dataSourceInstaclustrClusterIPs() *schema.Resource {
 			"cluster_id": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 			},
 			"public_ips": &schema.Schema{
 				Type:     schema.TypeList,
@@ -27,12 +28,13 @@ func dataSourceInstaclustrClusterIPs() *schema.Resource {
 
 func dataSourceInstaclustrClusterIPsRead(d *schema.ResourceData, m interface{}) error {
 	client := m.(*InstaclustrClient).ClusterClient()
-	cluster, err := client.Get(d.Id())
+	cluster, err := client.Get(d.Get("cluster_id").(string))
 	if err != nil {
 		return err
 	}
 	publicIps, privateIps := ipsForCluster(cluster)
 
+	d.SetId(d.Get("cluster_id").(string))
 	d.Set("public_ips", publicIps)
 	d.Set("private_ips", privateIps)
 

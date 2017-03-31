@@ -135,7 +135,7 @@ func (c *ClusterClient) Get(clusterID string) (*ClusterStatus, error) {
 	cluster := &ClusterStatus{}
 	err = json.Unmarshal(responseData, cluster)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	return cluster, nil
 }
