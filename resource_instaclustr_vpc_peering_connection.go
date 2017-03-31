@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -67,6 +69,19 @@ func resourceInstaclustrVpcPeeringConnectionCreate(d *schema.ResourceData, m int
 		d.SetId("")
 		return err
 	}
+	stateConf := &resource.StateChangeConf{
+		Pending:    []string{"initiating-request", "pending-acceptance", "provisioning", "active"},
+		Target:     []string{"pending-acceptance", "active"},
+		Refresh:    vpcConnectionStateRefreshFunc(client, clusterDatacenterID, response.ID),
+		Timeout:    15 * time.Minute,
+		Delay:      3 * time.Second,
+		MinTimeout: 3 * time.Second,
+	}
+	_, waitErr := stateConf.WaitForState()
+	if waitErr != nil {
+		return fmt.Errorf(
+			"Error waiting for VPC Peering Connecting (%s) to be ready: %s", response.ID, waitErr)
+	}
 	d.SetId(vpcPeeringConnectionID(clusterDatacenterID, response.ID))
 	return resourceInstaclustrVpcPeeringConnectionRead(d, m)
 }
@@ -118,4 +133,14 @@ func splitVpcPeeringConnectionID(id string) (string, string, error) {
 		return "", "", errors.New("Must supply ID in format of <clusterDatacenterID>:<vpcPeeringConnectionID>")
 	}
 	return tokens[0], tokens[1], nil
+}
+
+func vpcConnectionStateRefreshFunc(client *VpcPeeringClient, datacenterID, connectionID string) resource.StateRefreshFunc {
+	return func() (interface{}, string, error) {
+		connection, err := client.Get(datacenterID, connectionID)
+		if err != nil {
+			return nil, "", err
+		}
+		return connection, connection.StatusCode, nil
+	}
 }

@@ -31,8 +31,17 @@ func dataSourceInstaclustrClusterIPsRead(d *schema.ResourceData, m interface{}) 
 	if err != nil {
 		return err
 	}
-	publicIps := []string{}
-	privateIps := []string{}
+	publicIps, privateIps := ipsForCluster(cluster)
+
+	d.Set("public_ips", publicIps)
+	d.Set("private_ips", privateIps)
+
+	return nil
+}
+
+func ipsForCluster(cluster *ClusterStatus) (publicIps []string, privateIps []string) {
+	publicIps = []string{}
+	privateIps = []string{}
 
 	for _, datacenter := range cluster.Datacenters {
 		for _, node := range datacenter.Nodes {
@@ -42,8 +51,5 @@ func dataSourceInstaclustrClusterIPsRead(d *schema.ResourceData, m interface{}) 
 			}
 		}
 	}
-	d.Set("public_ips", publicIps)
-	d.Set("private_ips", privateIps)
-
-	return nil
+	return publicIps, privateIps
 }

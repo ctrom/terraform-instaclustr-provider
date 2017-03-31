@@ -30,6 +30,16 @@ func resourceCluster() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
+			"public_ips": &schema.Schema{
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"private_ips": &schema.Schema{
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
 			"datacenter": &schema.Schema{
 				Type:     schema.TypeList,
 				Required: true,
@@ -39,9 +49,10 @@ func resourceCluster() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"provider_name": &schema.Schema{
-							Type:     schema.TypeString,
-							Required: true,
-							ForceNew: true,
+							Type:         schema.TypeString,
+							Required:     true,
+							ForceNew:     true,
+							ValidateFunc: stringInList([]string{"AWS_VPC", "AZURE", "SOFTLAYER_BARE_METAL", "GCP"}),
 						},
 						"account": &schema.Schema{
 							Type:     schema.TypeString,
@@ -70,14 +81,17 @@ func resourceCluster() *schema.Resource {
 						},
 						"client_encryption": &schema.Schema{
 							Type:     schema.TypeBool,
+							Computed: true,
+						},
+						"disk_encryption_key": &schema.Schema{
+							Type:     schema.TypeString,
 							Optional: true,
-							Default:  false,
 							ForceNew: true,
 						},
 						"use_private_rpc_broadcast_address": &schema.Schema{
 							Type:     schema.TypeBool,
 							Optional: true,
-							Default:  false,
+							Default:  true,
 							ForceNew: true,
 						},
 						"default_network": &schema.Schema{
@@ -123,16 +137,20 @@ func resourceInstaclustrClusterCreate(d *schema.ResourceData, m interface{}) err
 		Size:     datacenter["size"].(string),
 		Region: CreateClusterRequestRegion{
 			Datacenter:                    datacenter["region"].(string),
-			ClientEncryption:              datacenter["client_encryption"].(bool),
 			UsePrivateBroadcastRPCAddress: datacenter["use_private_rpc_broadcast_address"].(bool),
 			DefaultNetwork:                datacenter["default_network"].(string),
 			AuthnAuthz:                    datacenter["auth"].(bool),
+			ClientEncryption:              false,
 			RackAllocations:               []CreateClusterRequestRegionRackAllocation{},
 			FirewallRules:                 []string{},
 		},
 	}
 	if account, ok := datacenter["account"]; ok {
 		request.Account = account.(string)
+	}
+	if key, ok := datacenter["disk_encryption_key"]; ok && key != "" {
+		request.Region.ClientEncryption = true
+		request.Region.DiskEncryptionKey = key.(string)
 	}
 
 	for _, rack := range datacenter["rack"].(*schema.Set).List() {
@@ -148,9 +166,9 @@ func resourceInstaclustrClusterCreate(d *schema.ResourceData, m interface{}) err
 	}
 	stateConf := &resource.StateChangeConf{
 		Pending:    []string{"RUNNING", "GENESIS", "PROVISIONING", "PROVISIONED"},
-		Target:     []string{"PROVISIONED"},
+		Target:     []string{"RUNNING"},
 		Refresh:    clusterStateRefreshFunc(client, response.ID),
-		Timeout:    10 * time.Minute,
+		Timeout:    15 * time.Minute,
 		Delay:      3 * time.Second,
 		MinTimeout: 3 * time.Second,
 	}
@@ -170,6 +188,8 @@ func resourceInstaclustrClusterRead(d *schema.ResourceData, m interface{}) error
 		d.SetId("")
 		return err
 	}
+
+	//Set non-Computed values first
 	d.Set("name", cluster.ClusterName)
 	d.Set("version", cluster.CassandraVersion)
 
@@ -180,9 +200,7 @@ func resourceInstaclustrClusterRead(d *schema.ResourceData, m interface{}) error
 	dc["provider_name"] = datacenter.Provider
 	dc["region"] = datacenter.Name
 	dc["size"] = node.Size
-	// dc["datacenter_id"] = datacenter.ID
 	dc["auth"] = datacenter.PasswordAuthentication && datacenter.UserAuthorization
-	dc["client_encryption"] = datacenter.ClientEncryption
 	dc["use_private_rpc_broadcast_address"] = datacenter.UsePrivateBroadcastRPCAddress
 	dc["default_network"] = fmt.Sprintf("%s/%d", cluster.ClusterNetwork.Network, cluster.ClusterNetwork.PrefixLength)
 
@@ -205,11 +223,16 @@ func resourceInstaclustrClusterRead(d *schema.ResourceData, m interface{}) error
 	dc["rack"] = rackSet
 	d.Set("datacenter", dcResource)
 
+	// Set computed values last after reaquiring the datacenter map
 	dcResource = d.Get("datacenter")
 	dc = dcResource.([]interface{})[0].(map[string]interface{})
 	dc["datacenter_id"] = datacenter.ID
+	dc["client_encryption"] = datacenter.ClientEncryption
 	d.Set("datacenter", dcResource)
 
+	publicIps, privateIps := ipsForCluster(cluster)
+	d.Set("public_ips", publicIps)
+	d.Set("private_ips", privateIps)
 	return nil
 }
 
