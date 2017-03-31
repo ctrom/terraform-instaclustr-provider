@@ -31,8 +31,8 @@ func (fc *FirewallClient) List(clusterID string) ([]*Firewall, error) {
 	}
 	defer response.Body.Close()
 	responseData, _ := ioutil.ReadAll(response.Body)
-	if response.StatusCode != 200 {
-		return nil, fmt.Errorf("List Firewall Rules did not return 200 [%d]:\n%s", response.StatusCode, string(responseData))
+	if response.StatusCode != 200 || response.StatusCode != 202 {
+		return nil, fmt.Errorf("List Firewall Rules did not return 200/202 [%d]:\n%s", response.StatusCode, string(responseData))
 	}
 	firewall := []*Firewall{}
 	err = json.Unmarshal(responseData, &firewall)
@@ -62,8 +62,8 @@ func (fc *FirewallClient) Create(clusterID, network string) error {
 	}
 	defer response.Body.Close()
 	responseData, _ := ioutil.ReadAll(response.Body)
-	if response.StatusCode != 202 {
-		return fmt.Errorf("Create Firewall Rule did not return 202 [%d]:\n%s\n%s", response.StatusCode, string(responseData), string(bytes))
+	if response.StatusCode != 200 || response.StatusCode != 202 {
+		return fmt.Errorf("Create Firewall Rule did not return 200/202 [%d]:\n%s\n%s", response.StatusCode, string(responseData), string(bytes))
 	}
 	return nil
 }
@@ -88,8 +88,8 @@ func (fc *FirewallClient) Delete(clusterID, network string) error {
 	}
 	defer response.Body.Close()
 	responseData, _ := ioutil.ReadAll(response.Body)
-	if response.StatusCode != 202 {
-		return fmt.Errorf("Delete Firewall Rule did not return 202 [%d]:\n%s", response.StatusCode, string(responseData))
+	if response.StatusCode != 200 || response.StatusCode != 202 {
+		return fmt.Errorf("Delete Firewall Rule did not return 200/202 [%d]:\n%s", response.StatusCode, string(responseData))
 	}
 	return nil
 }

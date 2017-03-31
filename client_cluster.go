@@ -110,8 +110,8 @@ func (c *ClusterClient) List() ([]*ClusterListStatus, error) {
 	}
 	defer response.Body.Close()
 	responseData, _ := ioutil.ReadAll(response.Body)
-	if response.StatusCode != 200 {
-		return nil, fmt.Errorf("List Cluster did not return 200 [%d]:\n%s", response.StatusCode, string(responseData))
+	if response.StatusCode != 200 || response.StatusCode != 202 {
+		return nil, fmt.Errorf("List Cluster did not return 200/202 [%d]:\n%s", response.StatusCode, string(responseData))
 	}
 	clusters := []*ClusterListStatus{}
 	err = json.Unmarshal(responseData, &clusters)
@@ -129,8 +129,8 @@ func (c *ClusterClient) Get(clusterID string) (*ClusterStatus, error) {
 	}
 	defer response.Body.Close()
 	responseData, _ := ioutil.ReadAll(response.Body)
-	if response.StatusCode != 202 {
-		return nil, fmt.Errorf("Get Cluster did not return 202 [%d]:\n%s", response.StatusCode, string(responseData))
+	if response.StatusCode != 200 || response.StatusCode != 202 {
+		return nil, fmt.Errorf("Get Cluster did not return 200/202 [%d]:\n%s", response.StatusCode, string(responseData))
 	}
 	cluster := &ClusterStatus{}
 	err = json.Unmarshal(responseData, cluster)
@@ -147,8 +147,8 @@ func (c *ClusterClient) Delete(clusterID string) error {
 		return err
 	}
 	defer response.Body.Close()
-	if response.StatusCode != 202 {
-		return fmt.Errorf("Cluster DELETE did not return 202 [%d]", response.StatusCode)
+	if response.StatusCode != 200 || response.StatusCode != 202 {
+		return fmt.Errorf("Cluster DELETE did not return 200/202 [%d]", response.StatusCode)
 	}
 	return nil
 }
@@ -165,8 +165,8 @@ func (c *ClusterClient) Create(request CreateClusterRequest) (*CreateClusterResp
 	}
 	defer response.Body.Close()
 	responseData, _ := ioutil.ReadAll(response.Body)
-	if response.StatusCode != 202 {
-		return nil, fmt.Errorf("Create Cluster did not return 202 [%d]:\n%s", response.StatusCode, string(responseData))
+	if response.StatusCode != 200 || response.StatusCode != 202 {
+		return nil, fmt.Errorf("Create Cluster did not return 200/202 [%d]:\n%s", response.StatusCode, string(responseData))
 	}
 	cluster := &CreateClusterResponse{}
 	err = json.Unmarshal(responseData, cluster)
