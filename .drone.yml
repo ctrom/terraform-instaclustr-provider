@@ -8,8 +8,11 @@ pipeline:
     commands:
       - go vet .
       - TF_ACC=1 go test -v -timeout 30m .
-      - go build -o terraform-provider-instaclustr
+      - GOOS=linux go build -o terraform-provider-instaclustr
       - tar -zcvf terraform-provider-instaclustr-linux-amd64.tar.gz terraform-provider-instaclustr
+      - rm terraform-provider-instaclustr
+      - GOOS=darwin go build -o terraform-provider-instaclustr
+      - tar -zcvf terraform-provider-instaclustr-darwin-amd64.tar.gz terraform-provider-instaclustr
     environment:
       - INSTACLUSTR_ACCESS_KEY=${INSTACLUSTR_ACCESS_KEY}
       - INSTACLUSTR_SECRET_KEY=${INSTACLUSTR_SECRET_KEY}
@@ -25,6 +28,18 @@ pipeline:
     access_key: ${PN_AWS_ACCESS_KEY_ID}
     secret_key: ${PN_AWS_SECRET_ACCESS_KEY}
     source: terraform-provider-instaclustr-linux-amd64.tar.gz
+    target: /terraform-provider-instaclustr
+    when:
+      local: false
+      branch: master
+  s3:
+    image: plugins/s3
+    acl: public-read
+    region: "us-east-1"
+    bucket: "peoplenet-custom-tools"
+    access_key: ${PN_AWS_ACCESS_KEY_ID}
+    secret_key: ${PN_AWS_SECRET_ACCESS_KEY}
+    source: terraform-provider-instaclustr-darwin-amd64.tar.gz
     target: /terraform-provider-instaclustr
     when:
       local: false
