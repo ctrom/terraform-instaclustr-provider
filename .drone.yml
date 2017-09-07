@@ -1,13 +1,12 @@
 workspace:
   base: /go
   path: src/github.com/peoplenet/terraform-instaclustr-provider
-branches: [ master, feature/* ]  
+branches: [ master, feature/* ]
 pipeline:
   build:
     image: golang:1.8.0-alpine
     commands:
       - go vet .
-      - TF_ACC=1 go test -v -timeout 30m .
       - GOOS=linux go build -o terraform-provider-instaclustr
       - tar -zcvf terraform-provider-instaclustr-linux-amd64.tar.gz terraform-provider-instaclustr
       - rm terraform-provider-instaclustr
