@@ -4,7 +4,7 @@ workspace:
 branches: [ master, feature/* ]
 pipeline:
   build:
-    image: golang:1.8.0-alpine
+    image: golang:1.9.0-alpine
     commands:
       - go vet .
       - GOOS=linux go build -o terraform-provider-instaclustr
