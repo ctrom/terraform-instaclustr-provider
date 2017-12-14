@@ -8,7 +8,7 @@ pipeline:
     commands:
       - apk --no-cache add file
       - go vet .
-      - GOOS=linux go build -o terraform-provider-instaclustr
+      - CGO_ENABLED=0 GOOS=linux go build -installsuffix cgo -o terraform-provider-instaclustr
       - file terraform-provider-instaclustr
       - tar -zcvf terraform-provider-instaclustr-linux-amd64.tar.gz terraform-provider-instaclustr
       - rm terraform-provider-instaclustr
