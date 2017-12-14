@@ -7,7 +7,7 @@ pipeline:
     image: golang:1.9.0-alpine
     commands:
       - go vet .
-      - GOOS=linux go build -o terraform-provider-instaclustr
+      - CGO_ENABLED=0 GOOS=linux go build -installsuffix cgo -o terraform-provider-instaclustr
       - tar -zcvf terraform-provider-instaclustr-linux-amd64.tar.gz terraform-provider-instaclustr
       - rm terraform-provider-instaclustr
       - GOOS=darwin go build -o terraform-provider-instaclustr
