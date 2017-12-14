@@ -6,14 +6,11 @@ pipeline:
   build:
     image: golang:1.9.0-alpine
     commands:
-      - apk --no-cache add file
       - go vet .
       - CGO_ENABLED=0 GOOS=linux go build -installsuffix cgo -o terraform-provider-instaclustr
-      - file terraform-provider-instaclustr
       - tar -zcvf terraform-provider-instaclustr-linux-amd64.tar.gz terraform-provider-instaclustr
       - rm terraform-provider-instaclustr
       - GOOS=darwin go build -o terraform-provider-instaclustr
-      - file terraform-provider-instaclustr
       - tar -zcvf terraform-provider-instaclustr-darwin-amd64.tar.gz terraform-provider-instaclustr
     environment:
       - INSTACLUSTR_ACCESS_KEY=${INSTACLUSTR_ACCESS_KEY}
