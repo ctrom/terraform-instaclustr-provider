@@ -6,6 +6,7 @@ pipeline:
   build:
     image: golang:1.9.0-alpine
     commands:
+      - apk --no-cache add file
       - go vet .
       - GOOS=linux go build -o terraform-provider-instaclustr
       - file terraform-provider-instaclustr
