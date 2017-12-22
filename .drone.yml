@@ -13,6 +13,7 @@ pipeline:
     commands:
       - VERSION=$(cat version)
       - echo $VERSION
+      - apk --no-cache add zip
       - go vet .
       - CGO_ENABLED=0 GOOS=linux go build -installsuffix cgo -o terraform-provider-instaclustr-v$VERSION
       - zip terraform-provider-instaclustr-$VERSION-linux-amd64.zip terraform-provider-instaclustr-v$VERSION
