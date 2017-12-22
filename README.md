@@ -121,3 +121,4 @@ data "instaclustr_cluster_ips" "cluster" {
 * `private_ips` - list of node private IP addresses
 * `public_ips` - list of node public IP addresses
 * `cidr_block` - the CIDR block for the cluster's datacenter (only the first entry)
+
