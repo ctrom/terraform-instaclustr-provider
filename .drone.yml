@@ -2,6 +2,10 @@ workspace:
   base: /go
   path: src/github.com/peoplenet/terraform-instaclustr-provider
 branches: [ master, feature/* ]
+clone:
+  git:
+    image: plugins/git
+    tags: true
 pipeline:
   version:
     image: alpine/git
