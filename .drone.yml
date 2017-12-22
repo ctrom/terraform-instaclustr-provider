@@ -6,8 +6,8 @@ pipeline:
   build:
     image: golang:1.9.0-alpine
     commands:
-      - go vet .
-      - echo "About to get version..."
+      - go vet -v .
+      - echo "About to get version..." && sleep 10
       - VERSION=`git describe --tags`
       - CGO_ENABLED=0 GOOS=linux go build -installsuffix cgo -o terraform-provider-instaclustr-v$VERSION
       - zip terraform-provider-instaclustr-$VERSION-linux-amd64.zip terraform-provider-instaclustr-v$VERSION
