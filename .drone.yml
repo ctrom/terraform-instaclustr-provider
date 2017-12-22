@@ -1,7 +1,3 @@
-clone:
-  git:
-    image: plugins/git
-    tags: true
 workspace:
   base: /go
   path: src/github.com/peoplenet/terraform-instaclustr-provider
@@ -10,6 +6,7 @@ pipeline:
   version:
     image: alpine/git
     commands:
+      - git fetch --tags
       - git describe --tags > version
   build:
     image: golang:1.9.0-alpine
