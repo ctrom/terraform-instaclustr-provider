@@ -1,11 +1,11 @@
-workspace:
-  base: /go
-  path: src/github.com/peoplenet/terraform-instaclustr-provider
-branches: [ master, feature/* ]
 clone:
   git:
     image: plugins/git
     tags: true
+workspace:
+  base: /go
+  path: src/github.com/peoplenet/terraform-instaclustr-provider
+branches: [ master, feature/* ]
 pipeline:
   version:
     image: alpine/git
