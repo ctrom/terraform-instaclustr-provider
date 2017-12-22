@@ -7,17 +7,15 @@ pipeline:
     image: golang:1.9.0-alpine
     commands:
       - go vet .
-      - CGO_ENABLED=0 GOOS=linux go build -installsuffix cgo -o terraform-provider-instaclustr
-      - tar -zcvf terraform-provider-instaclustr-linux-amd64.tar.gz terraform-provider-instaclustr
-      - rm terraform-provider-instaclustr
-      - GOOS=darwin go build -o terraform-provider-instaclustr
-      - tar -zcvf terraform-provider-instaclustr-darwin-amd64.tar.gz terraform-provider-instaclustr
+      - VERSION=`git describe --tags`
+      - CGO_ENABLED=0 GOOS=linux go build -installsuffix cgo -o terraform-provider-instaclustr-v$VERSION
+      - zip terraform-provider-instaclustr-$VERSION-linux-amd64.zip terraform-provider-instaclustr-v$VERSION
+      - rm terraform-provider-instaclustr-v$VERSION
+      - GOOS=darwin go build -o terraform-provider-instaclustr-v$VERSION
+      - zip terraform-provider-instaclustr-$VERSION-darwin-amd64.zip terraform-provider-instaclustr-v$VERSION
     environment:
       - INSTACLUSTR_ACCESS_KEY=${INSTACLUSTR_ACCESS_KEY}
       - INSTACLUSTR_SECRET_KEY=${INSTACLUSTR_SECRET_KEY}
-      - AWS_ACCESS_KEY_ID=${PN_AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${PN_AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=us-east-1
 
   s3:
     image: plugins/s3
@@ -26,19 +24,7 @@ pipeline:
     bucket: "peoplenet-custom-tools"
     access_key: ${PN_AWS_ACCESS_KEY_ID}
     secret_key: ${PN_AWS_SECRET_ACCESS_KEY}
-    source: terraform-provider-instaclustr-linux-amd64.tar.gz
-    target: /terraform-provider-instaclustr
-    when:
-      local: false
-      branch: master
-  s3:
-    image: plugins/s3
-    acl: public-read
-    region: "us-east-1"
-    bucket: "peoplenet-custom-tools"
-    access_key: ${PN_AWS_ACCESS_KEY_ID}
-    secret_key: ${PN_AWS_SECRET_ACCESS_KEY}
-    source: terraform-provider-instaclustr-darwin-amd64.tar.gz
+    source: terraform-provider-instaclustr-*.zip
     target: /terraform-provider-instaclustr
     when:
       local: false
