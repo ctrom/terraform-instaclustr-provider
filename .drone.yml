@@ -35,4 +35,5 @@ pipeline:
     target: /terraform-provider-instaclustr
     when:
       local: false
-      branch: master
+      event: tag
+
