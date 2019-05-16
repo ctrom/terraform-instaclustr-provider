@@ -21,8 +21,7 @@ if(env.BRANCH_NAME == 'master') {
                             url          : "git@github.com:PeopleNet/${repositoryName}.git"]]]
             )
             withEnv([
-                    "GOPATH=/var/jenkins_home/workspace/go",
-                    "BUILDDIR=${buildDir}"
+                    "GOPATH=/var/jenkins_home/workspace/go"
             ]) {
                 sh """
                 git describe --tags > version
