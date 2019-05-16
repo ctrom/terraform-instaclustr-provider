@@ -1,8 +1,9 @@
 
 
-properties([buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '7', numToKeepStr: '10'))])
 
 if(env.BRANCH_NAME == 'master') {
+
+    properties([buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '7', numToKeepStr: '10'))])
 
     node ("generic-build-agent") {
         checkout scm
@@ -25,13 +26,13 @@ if(env.BRANCH_NAME == 'master') {
             ]) {
                 sh """
                 git describe --tags > version
-                VERSION=$(cat version)
-                echo $VERSION
-                CGO_ENABLED=0 GOOS=linux go build -installsuffix cgo -o terraform-provider-instaclustr_v$VERSION
-                zip terraform-provider-instaclustr-$VERSION-linux-amd64.zip terraform-provider-instaclustr_v$VERSION
-                rm terraform-provider-instaclustr_v$VERSION
-                GOOS=darwin go build -o terraform-provider-instaclustr_v$VERSION
-                zip terraform-provider-instaclustr-$VERSION-darwin-amd64.zip terraform-provider-instaclustr_v$VERSION
+                VERSION=\$(cat version)
+                echo \$VERSION
+                CGO_ENABLED=0 GOOS=linux go build -installsuffix cgo -o terraform-provider-instaclustr_v\VERSION
+                zip terraform-provider-instaclustr-\$VERSION-linux-amd64.zip terraform-provider-instaclustr_v\$VERSION
+                rm terraform-provider-instaclustr_v\$VERSION
+                GOOS=darwin go build -o terraform-provider-instaclustr_v\$VERSION
+                zip terraform-provider-instaclustr-\$VERSION-darwin-amd64.zip terraform-provider-instaclustr_v\$VERSION
                 """
 
                 tool 'aws_cli'
@@ -39,8 +40,8 @@ if(env.BRANCH_NAME == 'master') {
                 withCredentials([
                         [$class: 'UsernamePasswordMultiBinding', credentialsId: 'aws', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY'],
                 ]) {
-                    sh "aws s3 cp terraform-provider-instaclustr-$VERSION-linux-amd64.zip s3://peoplenet-custom-tools/terraform-provider-instaclustr"
-                    sh "aws s3 cp terraform-provider-instaclustr-$VERSION-darwin-amd64.zip s3://peoplenet-custom-tools/terraform-provider-instaclustr"
+                    sh "aws s3 cp terraform-provider-instaclustr-\$VERSION-linux-amd64.zip s3://peoplenet-custom-tools/terraform-provider-instaclustr"
+                    sh "aws s3 cp terraform-provider-instaclustr-\$VERSION-darwin-amd64.zip s3://peoplenet-custom-tools/terraform-provider-instaclustr"
                 }
             }
 
