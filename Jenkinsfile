@@ -41,8 +41,12 @@ if(env.BRANCH_NAME == 'master') {
                 withCredentials([
                         [$class: 'UsernamePasswordMultiBinding', credentialsId: 'aws', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY'],
                 ]) {
-                    sh "aws s3 cp terraform-provider-instaclustr-\$VERSION-linux-amd64.zip s3://peoplenet-custom-tools/terraform-provider-instaclustr"
-                    sh "aws s3 cp terraform-provider-instaclustr-\$VERSION-darwin-amd64.zip s3://peoplenet-custom-tools/terraform-provider-instaclustr"
+                    sh """
+                    git describe --tags > version
+                    VERSION=\$(cat version)
+                    aws s3 cp terraform-provider-instaclustr-\$VERSION-linux-amd64.zip s3://peoplenet-custom-tools/terraform-provider-instaclustr
+                    aws s3 cp terraform-provider-instaclustr-\$VERSION-darwin-amd64.zip s3://peoplenet-custom-tools/terraform-provider-instaclustr
+                    """"
                 }
             }
 
