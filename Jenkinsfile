@@ -28,7 +28,7 @@ if(env.BRANCH_NAME == 'master') {
                 git describe --tags > version
                 VERSION=\$(cat version)
                 echo \$VERSION
-                CGO_ENABLED=0 GOOS=linux go build -installsuffix cgo -o terraform-provider-instaclustr_v\VERSION
+                CGO_ENABLED=0 GOOS=linux go build -installsuffix cgo -o terraform-provider-instaclustr_v\$VERSION
                 zip terraform-provider-instaclustr-\$VERSION-linux-amd64.zip terraform-provider-instaclustr_v\$VERSION
                 rm terraform-provider-instaclustr_v\$VERSION
                 GOOS=darwin go build -o terraform-provider-instaclustr_v\$VERSION
