@@ -1,5 +1,5 @@
 
-
+String repositoryName = env.JOB_NAME.split('/')[0]
 
 if(env.BRANCH_NAME == 'master') {
 
