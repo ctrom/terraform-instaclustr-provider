@@ -44,8 +44,8 @@ if(env.BRANCH_NAME == 'master') {
                     sh """
                     git describe --tags > version
                     VERSION=\$(cat version)
-                    aws s3 cp terraform-provider-instaclustr-\$VERSION-linux-amd64.zip s3://peoplenet-custom-tools/terraform-provider-instaclustr
-                    aws s3 cp terraform-provider-instaclustr-\$VERSION-darwin-amd64.zip s3://peoplenet-custom-tools/terraform-provider-instaclustr
+                    aws s3 cp terraform-provider-instaclustr-\$VERSION-linux-amd64.zip s3://peoplenet-custom-tools/terraform-provider-instaclustr/terraform-provider-instaclustr-\$VERSION-linux-amd64.zip
+                    aws s3 cp terraform-provider-instaclustr-\$VERSION-darwin-amd64.zip s3://peoplenet-custom-tools/terraform-provider-instaclustr/terraform-provider-instaclustr-\$VERSION-darwin-amd64.zip
                     """
                 }
             }
