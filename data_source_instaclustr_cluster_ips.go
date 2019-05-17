@@ -43,7 +43,7 @@ func dataSourceInstaclustrClusterIPsRead(d *schema.ResourceData, m interface{}) 
 	publicIps, privateIps := ipsForCluster(cluster)
 
 	d.SetId(d.Get("cluster_id").(string))
-	d.Set("cidr_block", fmt.Sprintf("%s/%d", cluster.Datacenters[0].CdcNetwork.Network, cluster.Datacenters[0].CdcNetwork.PrefixLength))
+	d.Set("cidr_block", fmt.Sprintf("%s", cluster.Datacenters[0].CdcNetwork))
 	d.Set("public_ips", publicIps)
 	d.Set("private_ips", privateIps)
 

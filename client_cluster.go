@@ -73,7 +73,7 @@ type Datacenter struct {
 	PasswordAuthentication        bool             `json:"passwordAuthentication"`
 	UserAuthorization             bool             `json:"userAuthorization"`
 	UsePrivateBroadcastRPCAddress bool             `json:"usePrivateBroadcastRPCAddress"`
-	CdcNetwork                    ClusterNetwork   `json:"cdcNetwork"`
+	CdcNetwork                    string           `json:"cdcNetwork"`
 	Bundles                       []string         `json:"bundles"`
 	Nodes                         []DatacenterNode `json:"nodes"`
 	NodeCount                     int              `json:"nodeCount"`
