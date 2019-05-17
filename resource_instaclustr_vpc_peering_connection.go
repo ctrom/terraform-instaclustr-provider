@@ -100,7 +100,7 @@ func resourceInstaclustrVpcPeeringConnectionRead(d *schema.ResourceData, m inter
 	}
 	d.Set("peer_vpc_id", vpcPeer.PeerVpcID)
 	d.Set("peer_account_id", vpcPeer.PeerAccountID)
-	d.Set("peer_subnet", fmt.Sprintf("%s/%d", vpcPeer.PeerSubnet.Network, vpcPeer.PeerSubnet.PrefixLength))
+	d.Set("peer_subnet", vpcPeer.PeerSubnet)
 	d.Set("vpc_id", vpcPeer.VpcID)
 	d.Set("aws_vpc_connection_id", vpcPeer.AWSVpcConnectionID)
 	d.Set("status", vpcPeer.StatusCode)

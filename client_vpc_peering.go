@@ -14,20 +14,14 @@ type VpcPeeringClient struct {
 
 // VpcPeer is the response from the VPC Peering API
 type VpcPeer struct {
-	ID                  string        `json:"id"`
-	AWSVpcConnectionID  string        `json:"aws_vpc_connection_id"`
-	ClusterDatacenterID string        `json:"clusterDataCentre"`
-	VpcID               string        `json:"vpcId"`
-	PeerVpcID           string        `json:"peerVpcId"`
-	PeerAccountID       string        `json:"peerAccountId"`
-	PeerSubnet          VpcPeerSubnet `json:"peerSubnet"`
-	StatusCode          string        `json:"statusCode"`
-}
-
-// VpcPeerSubnet is the subnet subsection for the peer configuration
-type VpcPeerSubnet struct {
-	Network      string `json:"network"`
-	PrefixLength int    `json:"prefixLength"`
+	ID                  string `json:"id"`
+	AWSVpcConnectionID  string `json:"aws_vpc_connection_id"`
+	ClusterDatacenterID string `json:"clusterDataCentre"`
+	VpcID               string `json:"vpcId"`
+	PeerVpcID           string `json:"peerVpcId"`
+	PeerAccountID       string `json:"peerAccountId"`
+	PeerSubnet          string `json:"peerSubnet"`
+	StatusCode          string `json:"statusCode"`
 }
 
 // CreateVpcPeerRequest is the object for creating a new VPC peering request
