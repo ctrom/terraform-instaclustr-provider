@@ -4,22 +4,25 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
 	"reflect"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/terraform/config"
 	"github.com/mitchellh/copystructure"
-	"github.com/satori/go.uuid"
+
+	tfversion "github.com/hashicorp/terraform/version"
 )
 
 const (
@@ -78,6 +81,11 @@ type State struct {
 	// Remote is used to track the metadata required to
 	// pull and push state files from a remote storage endpoint.
 	Remote *RemoteState `json:"remote,omitempty"`
+
+	// Backend tracks the configuration for the backend in use with
+	// this state. This is used to track any changes in the backend
+	// configuration.
+	Backend *BackendState `json:"backend,omitempty"`
 
 	// Modules contains all the modules in a breadth-first order
 	Modules []*ModuleState `json:"modules"`
@@ -528,6 +536,43 @@ func (s *State) equal(other *State) bool {
 	return true
 }
 
+// MarshalEqual is similar to Equal but provides a stronger definition of
+// "equal", where two states are equal if and only if their serialized form
+// is byte-for-byte identical.
+//
+// This is primarily useful for callers that are trying to save snapshots
+// of state to persistent storage, allowing them to detect when a new
+// snapshot must be taken.
+//
+// Note that the serial number and lineage are included in the serialized form,
+// so it's the caller's responsibility to properly manage these attributes
+// so that this method is only called on two states that have the same
+// serial and lineage, unless detecting such differences is desired.
+func (s *State) MarshalEqual(other *State) bool {
+	if s == nil && other == nil {
+		return true
+	} else if s == nil || other == nil {
+		return false
+	}
+
+	recvBuf := &bytes.Buffer{}
+	otherBuf := &bytes.Buffer{}
+
+	err := WriteState(s, recvBuf)
+	if err != nil {
+		// should never happen, since we're writing to a buffer
+		panic(err)
+	}
+
+	err = WriteState(other, otherBuf)
+	if err != nil {
+		// should never happen, since we're writing to a buffer
+		panic(err)
+	}
+
+	return bytes.Equal(recvBuf.Bytes(), otherBuf.Bytes())
+}
+
 type StateAgeComparison int
 
 const (
@@ -579,7 +624,7 @@ func (s *State) CompareAges(other *State) (StateAgeComparison, error) {
 }
 
 // SameLineage returns true only if the state given in argument belongs
-// to the same "lineage" of states as the reciever.
+// to the same "lineage" of states as the receiver.
 func (s *State) SameLineage(other *State) bool {
 	s.Lock()
 	defer s.Unlock()
@@ -598,36 +643,16 @@ func (s *State) SameLineage(other *State) bool {
 // DeepCopy performs a deep copy of the state structure and returns
 // a new structure.
 func (s *State) DeepCopy() *State {
+	if s == nil {
+		return nil
+	}
+
 	copy, err := copystructure.Config{Lock: true}.Copy(s)
 	if err != nil {
 		panic(err)
 	}
 
 	return copy.(*State)
-}
-
-// IncrementSerialMaybe increments the serial number of this state
-// if it different from the other state.
-func (s *State) IncrementSerialMaybe(other *State) {
-	if s == nil {
-		return
-	}
-	if other == nil {
-		return
-	}
-	s.Lock()
-	defer s.Unlock()
-
-	if s.Serial > other.Serial {
-		return
-	}
-	if other.TFVersion != s.TFVersion || !s.equal(other) {
-		if other.Serial > s.Serial {
-			s.Serial = other.Serial
-		}
-
-		s.Serial++
-	}
 }
 
 // FromFutureTerraform checks if this state was written by a Terraform
@@ -642,7 +667,7 @@ func (s *State) FromFutureTerraform() bool {
 	}
 
 	v := version.Must(version.NewVersion(s.TFVersion))
-	return SemVersion.LessThan(v)
+	return tfversion.SemVer.LessThan(v)
 }
 
 func (s *State) Init() {
@@ -655,6 +680,7 @@ func (s *State) init() {
 	if s.Version == 0 {
 		s.Version = StateVersion
 	}
+
 	if s.moduleByPath(rootModulePath) == nil {
 		s.addModule(rootModulePath)
 	}
@@ -681,7 +707,11 @@ func (s *State) EnsureHasLineage() {
 
 func (s *State) ensureHasLineage() {
 	if s.Lineage == "" {
-		s.Lineage = uuid.NewV4().String()
+		lineage, err := uuid.GenerateUUID()
+		if err != nil {
+			panic(fmt.Errorf("Failed to generate lineage: %v", err))
+		}
+		s.Lineage = lineage
 		log.Printf("[DEBUG] New state was assigned lineage %q\n", s.Lineage)
 	} else {
 		log.Printf("[TRACE] Preserving existing state lineage %q\n", s.Lineage)
@@ -777,6 +807,43 @@ func (s *State) String() string {
 	}
 
 	return strings.TrimSpace(buf.String())
+}
+
+// BackendState stores the configuration to connect to a remote backend.
+type BackendState struct {
+	Type   string                 `json:"type"`   // Backend type
+	Config map[string]interface{} `json:"config"` // Backend raw config
+
+	// Hash is the hash code to uniquely identify the original source
+	// configuration. We use this to detect when there is a change in
+	// configuration even when "type" isn't changed.
+	Hash uint64 `json:"hash"`
+}
+
+// Empty returns true if BackendState has no state.
+func (s *BackendState) Empty() bool {
+	return s == nil || s.Type == ""
+}
+
+// Rehash returns a unique content hash for this backend's configuration
+// as a uint64 value.
+// The Hash stored in the backend state needs to match the config itself, but
+// we need to compare the backend config after it has been combined with all
+// options.
+// This function must match the implementation used by config.Backend.
+func (s *BackendState) Rehash() uint64 {
+	if s == nil {
+		return 0
+	}
+
+	cfg := config.Backend{
+		Type: s.Type,
+		RawConfig: &config.RawConfig{
+			Raw: s.Config,
+		},
+	}
+
+	return cfg.Rehash()
 }
 
 // RemoteState is used to track the information about a remote
@@ -917,6 +984,10 @@ type ModuleState struct {
 	// always disjoint, so the path represents amodule tree
 	Path []string `json:"path"`
 
+	// Locals are kept only transiently in-memory, because we can always
+	// re-compute them.
+	Locals map[string]interface{} `json:"-"`
+
 	// Outputs declared by the module and maintained for each module
 	// even though only the root module technically needs to be kept.
 	// This allows operators to inspect values at the boundaries.
@@ -1023,7 +1094,7 @@ func (m *ModuleState) Orphans(c *config.Config) []string {
 	defer m.Unlock()
 
 	keys := make(map[string]struct{})
-	for k, _ := range m.Resources {
+	for k := range m.Resources {
 		keys[k] = struct{}{}
 	}
 
@@ -1031,7 +1102,7 @@ func (m *ModuleState) Orphans(c *config.Config) []string {
 		for _, r := range c.Resources {
 			delete(keys, r.Id())
 
-			for k, _ := range keys {
+			for k := range keys {
 				if strings.HasPrefix(k, r.Id()+".") {
 					delete(keys, k)
 				}
@@ -1040,7 +1111,32 @@ func (m *ModuleState) Orphans(c *config.Config) []string {
 	}
 
 	result := make([]string, 0, len(keys))
-	for k, _ := range keys {
+	for k := range keys {
+		result = append(result, k)
+	}
+
+	return result
+}
+
+// RemovedOutputs returns a list of outputs that are in the State but aren't
+// present in the configuration itself.
+func (m *ModuleState) RemovedOutputs(c *config.Config) []string {
+	m.Lock()
+	defer m.Unlock()
+
+	keys := make(map[string]struct{})
+	for k := range m.Outputs {
+		keys[k] = struct{}{}
+	}
+
+	if c != nil {
+		for _, o := range c.Outputs {
+			delete(keys, o.Name)
+		}
+	}
+
+	result := make([]string, 0, len(keys))
+	for k := range keys {
 		result = append(result, k)
 	}
 
@@ -1120,6 +1216,8 @@ func (m *ModuleState) prune() {
 			delete(m.Outputs, k)
 		}
 	}
+
+	m.Dependencies = uniqueStrings(m.Dependencies)
 }
 
 func (m *ModuleState) sort() {
@@ -1142,7 +1240,8 @@ func (m *ModuleState) String() string {
 	for name, _ := range m.Resources {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+
+	sort.Sort(resourceNameSort(names))
 
 	for _, k := range names {
 		rs := m.Resources[k]
@@ -1182,6 +1281,7 @@ func (m *ModuleState) String() string {
 
 			attrKeys = append(attrKeys, ak)
 		}
+
 		sort.Strings(attrKeys)
 
 		for _, ak := range attrKeys {
@@ -1212,6 +1312,7 @@ func (m *ModuleState) String() string {
 		for k, _ := range m.Outputs {
 			ks = append(ks, k)
 		}
+
 		sort.Strings(ks)
 
 		for _, k := range ks {
@@ -1241,6 +1342,10 @@ func (m *ModuleState) String() string {
 	}
 
 	return buf.String()
+}
+
+func (m *ModuleState) Empty() bool {
+	return len(m.Locals) == 0 && len(m.Outputs) == 0 && len(m.Resources) == 0
 }
 
 // ResourceStateKey is a structured representation of the key used for the
@@ -1480,8 +1585,9 @@ func (s *ResourceState) prune() {
 			i--
 		}
 	}
-
 	s.Deposed = s.Deposed[:n]
+
+	s.Dependencies = uniqueStrings(s.Dependencies)
 }
 
 func (s *ResourceState) sort() {
@@ -1519,8 +1625,9 @@ type InstanceState struct {
 
 	// Meta is a simple K/V map that is persisted to the State but otherwise
 	// ignored by Terraform core. It's meant to be used for accounting by
-	// external client code.
-	Meta map[string]string `json:"meta"`
+	// external client code. The value here must only contain Go primitives
+	// and collections.
+	Meta map[string]interface{} `json:"meta"`
 
 	// Tainted is used to mark a resource for recreation.
 	Tainted bool `json:"tainted"`
@@ -1539,7 +1646,7 @@ func (s *InstanceState) init() {
 		s.Attributes = make(map[string]string)
 	}
 	if s.Meta == nil {
-		s.Meta = make(map[string]string)
+		s.Meta = make(map[string]interface{})
 	}
 	s.Ephemeral.init()
 }
@@ -1610,13 +1717,24 @@ func (s *InstanceState) Equal(other *InstanceState) bool {
 	if len(s.Meta) != len(other.Meta) {
 		return false
 	}
-	for k, v := range s.Meta {
-		otherV, ok := other.Meta[k]
-		if !ok {
-			return false
+	if s.Meta != nil && other.Meta != nil {
+		// We only do the deep check if both are non-nil. If one is nil
+		// we treat it as equal since their lengths are both zero (check
+		// above).
+		//
+		// Since this can contain numeric values that may change types during
+		// serialization, let's compare the serialized values.
+		sMeta, err := json.Marshal(s.Meta)
+		if err != nil {
+			// marshaling primitives shouldn't ever error out
+			panic(err)
+		}
+		otherMeta, err := json.Marshal(other.Meta)
+		if err != nil {
+			panic(err)
 		}
 
-		if v != otherV {
+		if !bytes.Equal(sMeta, otherMeta) {
 			return false
 		}
 	}
@@ -1662,32 +1780,6 @@ func (s *InstanceState) MergeDiff(d *InstanceDiff) *InstanceState {
 			}
 
 			result.Attributes[k] = diff.New
-		}
-	}
-
-	// Remove any now empty array, maps or sets because a parent structure
-	// won't include these entries in the count value.
-	isCount := regexp.MustCompile(`\.[%#]$`).MatchString
-	var deleted []string
-
-	for k, v := range result.Attributes {
-		if isCount(k) && v == "0" {
-			delete(result.Attributes, k)
-			deleted = append(deleted, k)
-		}
-	}
-
-	for _, k := range deleted {
-		// Sanity check for invalid structures.
-		// If we removed the primary count key, there should have been no
-		// other keys left with this prefix.
-
-		// this must have a "#" or "%" which we need to remove
-		base := k[:len(k)-1]
-		for k, _ := range result.Attributes {
-			if strings.HasPrefix(k, base) {
-				panic(fmt.Sprintf("empty structure %q has entry %q", base, k))
-			}
 		}
 	}
 
@@ -1779,10 +1871,26 @@ func testForV0State(buf *bufio.Reader) error {
 	return nil
 }
 
+// ErrNoState is returned by ReadState when the io.Reader contains no data
+var ErrNoState = errors.New("no state")
+
 // ReadState reads a state structure out of a reader in the format that
 // was written by WriteState.
 func ReadState(src io.Reader) (*State, error) {
+	// check for a nil file specifically, since that produces a platform
+	// specific error if we try to use it in a bufio.Reader.
+	if f, ok := src.(*os.File); ok && f == nil {
+		return nil, ErrNoState
+	}
+
 	buf := bufio.NewReader(src)
+
+	if _, err := buf.Peek(1); err != nil {
+		if err == io.EOF {
+			return nil, ErrNoState
+		}
+		return nil, err
+	}
 
 	if err := testForV0State(buf); err != nil {
 		return nil, err
@@ -1844,7 +1952,7 @@ func ReadState(src io.Reader) (*State, error) {
 		result = v3State
 	default:
 		return nil, fmt.Errorf("Terraform %s does not support state version %d, please update.",
-			SemVersion.String(), versionIdentifier.Version)
+			tfversion.SemVer.String(), versionIdentifier.Version)
 	}
 
 	// If we reached this place we must have a result set
@@ -1888,7 +1996,7 @@ func ReadStateV2(jsonBytes []byte) (*State, error) {
 	// version that we don't understand
 	if state.Version > StateVersion {
 		return nil, fmt.Errorf("Terraform %s does not support state version %d, please update.",
-			SemVersion.String(), state.Version)
+			tfversion.SemVer.String(), state.Version)
 	}
 
 	// Make sure the version is semantic
@@ -1904,11 +2012,11 @@ func ReadStateV2(jsonBytes []byte) (*State, error) {
 		}
 	}
 
-	// Sort it
-	state.sort()
-
 	// catch any unitialized fields in the state
 	state.init()
+
+	// Sort it
+	state.sort()
 
 	return state, nil
 }
@@ -1923,7 +2031,7 @@ func ReadStateV3(jsonBytes []byte) (*State, error) {
 	// version that we don't understand
 	if state.Version > StateVersion {
 		return nil, fmt.Errorf("Terraform %s does not support state version %d, please update.",
-			SemVersion.String(), state.Version)
+			tfversion.SemVer.String(), state.Version)
 	}
 
 	// Make sure the version is semantic
@@ -1939,11 +2047,11 @@ func ReadStateV3(jsonBytes []byte) (*State, error) {
 		}
 	}
 
-	// Sort it
-	state.sort()
-
 	// catch any unitialized fields in the state
 	state.init()
+
+	// Sort it
+	state.sort()
 
 	// Now we write the state back out to detect any changes in normaliztion.
 	// If our state is now written out differently, bump the serial number to
@@ -1964,11 +2072,16 @@ func ReadStateV3(jsonBytes []byte) (*State, error) {
 
 // WriteState writes a state somewhere in a binary format.
 func WriteState(d *State, dst io.Writer) error {
-	// Make sure it is sorted
-	d.sort()
+	// writing a nil state is a noop.
+	if d == nil {
+		return nil
+	}
 
 	// make sure we have no uninitialized fields
 	d.init()
+
+	// Make sure it is sorted
+	d.sort()
 
 	// Ensure the version is set
 	d.Version = StateVersion
@@ -2003,6 +2116,48 @@ func WriteState(d *State, dst io.Writer) error {
 	return nil
 }
 
+// resourceNameSort implements the sort.Interface to sort name parts lexically for
+// strings and numerically for integer indexes.
+type resourceNameSort []string
+
+func (r resourceNameSort) Len() int      { return len(r) }
+func (r resourceNameSort) Swap(i, j int) { r[i], r[j] = r[j], r[i] }
+
+func (r resourceNameSort) Less(i, j int) bool {
+	iParts := strings.Split(r[i], ".")
+	jParts := strings.Split(r[j], ".")
+
+	end := len(iParts)
+	if len(jParts) < end {
+		end = len(jParts)
+	}
+
+	for idx := 0; idx < end; idx++ {
+		if iParts[idx] == jParts[idx] {
+			continue
+		}
+
+		// sort on the first non-matching part
+		iInt, iIntErr := strconv.Atoi(iParts[idx])
+		jInt, jIntErr := strconv.Atoi(jParts[idx])
+
+		switch {
+		case iIntErr == nil && jIntErr == nil:
+			// sort numerically if both parts are integers
+			return iInt < jInt
+		case iIntErr == nil:
+			// numbers sort before strings
+			return true
+		case jIntErr == nil:
+			return false
+		default:
+			return iParts[idx] < jParts[idx]
+		}
+	}
+
+	return r[i] < r[j]
+}
+
 // moduleStateSort implements sort.Interface to sort module states
 type moduleStateSort []*ModuleState
 
@@ -2032,6 +2187,19 @@ func (s moduleStateSort) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
+// StateCompatible returns an error if the state is not compatible with the
+// current version of terraform.
+func CheckStateVersion(state *State) error {
+	if state == nil {
+		return nil
+	}
+
+	if state.FromFutureTerraform() {
+		return fmt.Errorf(stateInvalidTerraformVersionErr, state.TFVersion)
+	}
+	return nil
+}
+
 const stateValidateErrMultiModule = `
 Multiple modules with the same path: %s
 
@@ -2039,4 +2207,12 @@ This means that there are multiple entries in the "modules" field
 in your state file that point to the same module. This will cause Terraform
 to behave in unexpected and error prone ways and is invalid. Please back up
 and modify your state file manually to resolve this.
+`
+
+const stateInvalidTerraformVersionErr = `
+Terraform doesn't allow running any operations against a state
+that was written by a future Terraform version. The state is
+reporting it is written by Terraform '%s'
+
+Please run at least that version of Terraform to continue.
 `
