@@ -10,6 +10,24 @@ provider "instaclustr" "test"{
 }
 ```
 
+# Jenkins Build / How To Update
+
+The jenkins master branch build will build and publish every commit to master to the S3 bucket: 
+
+```
+s3://peoplenet-custom-tools/terraform-provider-instaclustr/
+```
+
+Most of the terraform projects have a terraformw file which is configured to pull a version called noversion. 
+
+So after you publish a new build to the bucket, you can test it by typing in the version # published to your local terraformw script. 
+
+One thing to note, I think the terraformw scripts don't download the new version of the plugin unless that file does not currently exist. So you may have to delete the current version of the plugin on your machine to test it. 
+
+When you have validated that it works, you can go into the S3 bucket and delete or rename the current `noversion` zip files and rename your new build to `noversion`. Then all of the CI jobs will start using it. 
+
+Also, again, the terraformw scripts don't download the new version of the plugin unless that file does not currently exist. So the quickest way to make sure the CI jobs pick up the new  version would be to delete all the build agents and let them respawn. 
+
 ## Resources
 
 ### Cluster
